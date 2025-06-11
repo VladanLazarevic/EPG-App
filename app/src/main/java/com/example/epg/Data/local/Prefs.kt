@@ -21,3 +21,12 @@ fun Context.getPublicIpAddress(): String? {
     return getPrefs().getString(PREFS_KEY_IP_ADDRESS, DEFAULT_IP)
 }
 
+
+fun Context.saveLastFocusedChannelId(channelId: String) {
+    getPrefs().edit().putString(Constants.PREFS_KEY_LAST_FOCUSED_CHANNEL_ID, channelId).apply()
+}
+
+
+fun Context.getLastFocusedChannelId(): String? {
+    return getPrefs().getString(Constants.PREFS_KEY_LAST_FOCUSED_CHANNEL_ID, null)
+}
