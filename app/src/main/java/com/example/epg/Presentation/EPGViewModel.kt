@@ -171,6 +171,12 @@ class EPGViewModel(private val epgRepository: EPGRepository): ViewModel() {
             channelsResult.fold(
                 onSuccess = { appChannelList ->
                     Log.d(TAG, "Channels fetched successfully: ${appChannelList.size} channels")
+                    // NOVO: Logovanje svih kanala da pronađeš ID koji ti treba
+                    Log.d("CHANNEL_ID_FINDER", "--- SVI KANALI ---")
+                    appChannelList.forEach { channel ->
+                        Log.d("CHANNEL_ID_FINDER", "Ime: ${channel.name}, ID: ${channel.channelId}")
+                    }
+                    Log.d("CHANNEL_ID_FINDER", "--- KRAJ LISTE ---")
                     _channelState.value = Resource.Success(appChannelList)
                     if (appChannelList.isNotEmpty()) {
                         loadProgramsForChannels(appChannelList)

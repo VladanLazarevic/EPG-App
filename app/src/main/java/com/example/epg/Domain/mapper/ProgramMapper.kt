@@ -22,7 +22,8 @@ object ProgramMapper {
             startTimeEpoch = serverProgram.startTimeEpoch,
             durationSec = serverProgram.durationSec,
             thumbnail = serverProgram.thumbnail,
-            genre = serverProgram.genre
+            genre = serverProgram.genre?.decodeHtml(),
+            language = serverProgram.language
             // Mapiraj ostala polja ako ih AppProgram bude imao
         )
     }

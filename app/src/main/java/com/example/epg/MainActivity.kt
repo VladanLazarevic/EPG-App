@@ -33,6 +33,8 @@ import kotlinx.coroutines.launch
 
 
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import com.example.epg.Presentation.EPGScreen
 import com.example.epg.Presentation.EPGViewModelFactory
 
@@ -52,7 +54,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            EPGScreen(viewModel = epgViewModel)
+            //EPGScreen(viewModel = epgViewModel)
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Magenta) // Koristimo jarku boju da bude očigledno
+            ) {
+                EPGScreen(viewModel = epgViewModel)
+            }
+        }
         }
     }
 
@@ -70,5 +79,5 @@ class MainActivity : ComponentActivity() {
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         return super.onKeyUp(keyCode, event)
     }*/
-}
+
 
