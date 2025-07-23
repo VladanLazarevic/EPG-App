@@ -1,79 +1,77 @@
 package com.example.epg.Presentation
 
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.itemsIndexed
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.delay
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.rememberLottieComposition
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.draw.alpha
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.itemsIndexed
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import coil.compose.AsyncImage
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.example.epg.Data.local.getLastFocusedChannelId
+import com.example.epg.Data.local.saveLastFocusedChannelId
 import com.example.epg.Domain.model.AppChannel
 import com.example.epg.Domain.model.AppProgram
 import com.example.epg.R
-import com.example.epg.Data.local.getLastFocusedChannelId
-import com.example.epg.Data.local.saveLastFocusedChannelId
 import com.example.epg.ui.theme.BackgroundColor
 import com.example.epg.ui.theme.FocusedProgramCardColor
 import com.example.epg.ui.theme.UnfocusedProgramCardColor
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 private val EPG_SIDE_PADDING = 35.dp
@@ -104,7 +102,9 @@ fun EPGScreen(viewModel: EPGViewModel) {
         color = Color.Transparent
     ) {
         Box(
-            modifier = Modifier.fillMaxSize().background(BackgroundColor),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundColor),
         ) {
             val isLoading = channelState is Resource.Loading || (channelState is Resource.Success && programState is Resource.Loading)
             val isSuccess = channelState is Resource.Success && programState is Resource.Success && epgWindowStartEpochSecondsFromVM != null
@@ -159,7 +159,9 @@ fun EPGScreen(viewModel: EPGViewModel) {
 
 @Composable
 fun ErrorStateDisplay(message: String?, onRetry: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
         Text(message ?: "Unknown error.", color = Color.Red, textAlign = TextAlign.Center)
         Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) { Text("Pokušaj ponovo") }
     }
@@ -196,7 +198,9 @@ fun TimelineHeader(
                 for (i in 0 until numberOfTicks) {
                     val currentTickTimeEpochSeconds = globalTimelineStartEpochSeconds + (i * minutesPerTick * 60L)
                     val timeString = timeFormatter.format(Date(currentTickTimeEpochSeconds * 1000L))
-                    Box(modifier = Modifier.width(tickWidthDp).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+                    Box(modifier = Modifier
+                        .width(tickWidthDp)
+                        .fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
                         Canvas(modifier = Modifier.matchParentSize()) {
                             drawLine(color = Color.Gray.copy(alpha = 0.5f), start = Offset(0f, size.height * 0.5f), end = Offset(0f, size.height), strokeWidth = 1.dp.toPx())
                         }
@@ -245,7 +249,9 @@ fun EpgChannelRow(
     ) {
         ChannelItem(
             channel = channel,
-            modifier = Modifier.width(EPG_CHANNEL_ITEM_WIDTH).fillMaxHeight(),
+            modifier = Modifier
+                .width(EPG_CHANNEL_ITEM_WIDTH)
+                .fillMaxHeight(),
             focusRequester = focusRequesterForChannel,
             onFocusChangedAndIdCallback = { isFocused, channelId ->
                 onChannelFocusAndIdChanged(isFocused, channelId, channel.logo)
@@ -280,7 +286,7 @@ fun EpgChannelRow(
                     }
             ) {
                 var lastVisualElementEndTimeSeconds = globalTimelineStartEpochSeconds
-                val epgWindowEndEpochSeconds = globalTimelineStartEpochSeconds + (24 * 60 * 60)
+                val epgWindowEndEpochSeconds = globalTimelineStartEpochSeconds + (27 * 60 * 60)
 
                 for (program in programsForThisChannel) {
                     val programStartTimeSeconds = program.startTimeEpoch
@@ -505,7 +511,7 @@ fun ProgramCard(
     }
 }
 
-@Composable
+/*@Composable
 fun EmptyProgramCard(width: Dp, height: Dp) {
     Card(
         modifier = Modifier
@@ -534,16 +540,66 @@ fun EmptyProgramCard(width: Dp, height: Dp) {
             )
         }
     }
+}*/
+
+//testiranje
+@Composable
+fun EmptyProgramCard(width: Dp, height: Dp) {
+    // Definišemo razmak da bude isti kao kod ProgramCard
+    val spacingWidth = 3.dp
+
+    // Spoljna kartica je sada providna i zauzima punu širinu praznine
+    Card(
+        modifier = Modifier
+            .width(width)
+            .height(height - 4.dp)
+            .focusable(false),
+        shape = RoundedCornerShape(9.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent), // Providna pozadina
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // Gasimo senku
+        border = null // Uklanjamo stari border jer ćemo ga dodati na Box unutra
+    ) {
+        // Unutrašnji Box nosi boju i sadržaj, i malo je uži
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(end = spacingWidth) // Ostavljamo 3dp prostora sa desne strane
+                .background(
+                    color = Color.Black.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(9.dp)
+                )
+                .border( // Dodajemo border ovde da prati obojeni deo
+                    width = 1.dp,
+                    color = Color.Gray.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(9.dp)
+                )
+                .padding(horizontal = 6.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = "No Information Available",
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                color = Color.Gray,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }
 
 
 @Composable
 fun TopHeader() {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 39.dp, start = 65.8.dp, end = 46.75.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 39.dp, start = 65.8.dp, end = 46.75.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Image(painter = painterResource(id = R.drawable.iwedia_logo_white_02), contentDescription = "TV Guide Logo", modifier = Modifier.height(37.5.dp).width(45.91.dp))
+        Image(painter = painterResource(id = R.drawable.iwedia_logo_white_02), contentDescription = "TV Guide Logo", modifier = Modifier
+            .height(37.5.dp)
+            .width(45.91.dp))
         Spacer(modifier = Modifier.width(40.dp))
         Text(text = "TV Guide", style = TextStyle(fontWeight = FontWeight.Normal, fontSize = 20.sp, color = Color.White))
         Spacer(modifier = Modifier.weight(1f))
@@ -595,7 +651,9 @@ fun ChannelItem(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 1.7.dp, vertical = 0.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 1.7.dp, vertical = 0.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -611,7 +669,10 @@ fun ChannelItem(
                 AsyncImage(
                     model = channel.logo,
                     contentDescription = channel.name,
-                    modifier = Modifier.height(55.dp).width(88.dp).clip(RoundedCornerShape(9.dp)),
+                    modifier = Modifier
+                        .height(55.dp)
+                        .width(88.dp)
+                        .clip(RoundedCornerShape(9.dp)),
                     contentScale = ContentScale.FillBounds
                 )
             }
@@ -643,6 +704,7 @@ fun EpgContent(
     programsByChannelId: Map<String,List<AppProgram>>,
     epgWindowStartEpochSeconds: Long
 ) {
+
 
     var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -688,12 +750,39 @@ fun EpgContent(
 
 
             Box(
-                modifier = Modifier.align(Alignment.TopEnd).width(imageBoxWidth).height(imageBoxHeight)
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .width(imageBoxWidth)
+                    .height(imageBoxHeight)
             ) {
 
-                AsyncImage(model = imageUrl, contentDescription = "Pozadinska slika", modifier = Modifier.matchParentSize().alpha(imageOverallAlpha), contentScale = ContentScale.Fit)
-                Box(Modifier.align(Alignment.CenterStart).width(imageFadeEdgeLength).fillMaxHeight().background(brush = Brush.horizontalGradient(listOf(imageFadeToColor, Color.Transparent))))
-                Box(Modifier.align(Alignment.BottomCenter).height(imageFadeEdgeLength).fillMaxWidth().background(brush = Brush.verticalGradient(listOf(Color.Transparent, imageFadeToColor))))
+                AsyncImage(model = imageUrl, contentDescription = "Pozadinska slika", modifier = Modifier
+                    .matchParentSize()
+                    .alpha(imageOverallAlpha), contentScale = ContentScale.Fit)
+                Box(Modifier
+                    .align(Alignment.CenterStart)
+                    .width(imageFadeEdgeLength)
+                    .fillMaxHeight()
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                imageFadeToColor,
+                                Color.Transparent
+                            )
+                        )
+                    ))
+                Box(Modifier
+                    .align(Alignment.BottomCenter)
+                    .height(imageFadeEdgeLength)
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.Transparent,
+                                imageFadeToColor
+                            )
+                        )
+                    ))
             }
         }
 
@@ -751,10 +840,13 @@ fun EpgContent(
                 timelineHeight = 25.dp,
                 horizontalScrollState = sharedHorizontalScrollState,
                 totalWidth = totalEpgWidth
+
             )
 
             TvLazyColumn(
-                modifier = Modifier.fillMaxSize().padding(start = EPG_SIDE_PADDING),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = EPG_SIDE_PADDING),
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
