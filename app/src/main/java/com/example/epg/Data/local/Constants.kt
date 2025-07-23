@@ -8,4 +8,6 @@ object Constants {
     const val PREFS_KEY_IP_ADDRESS = "ip_address"
     const val DEFAULT_IP = ""
     const val PREFS_KEY_LAST_FOCUSED_CHANNEL_ID = "last_focused_channel_id"
+    const val PREFS_KEY_FAVORITE_IDS = "favorite_channel_ids"
 }
+

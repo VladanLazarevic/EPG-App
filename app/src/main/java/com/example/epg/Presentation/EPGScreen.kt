@@ -33,7 +33,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable // Import za focusable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
@@ -54,12 +54,14 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.draw.alpha
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.text.font.FontStyle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,10 +71,9 @@ import com.example.epg.Domain.model.AppProgram
 import com.example.epg.R
 import com.example.epg.Data.local.getLastFocusedChannelId
 import com.example.epg.Data.local.saveLastFocusedChannelId
-
-
-
-// LAST //
+import com.example.epg.ui.theme.BackgroundColor
+import com.example.epg.ui.theme.FocusedProgramCardColor
+import com.example.epg.ui.theme.UnfocusedProgramCardColor
 
 
 private val EPG_SIDE_PADDING = 35.dp
@@ -82,81 +83,6 @@ private val DP_PER_MINUTE = 6.dp
 private val SPACE_BETWEEN_CHANNEL_AND_PROGRAMS = 2.dp
 private val FIXED_CARD_SPACING_DP = 0.dp
 private val PROGRAM_DETAILS_HEIGHT = 200.dp
-val gradientStartColor = Color(0xFF1A1C1E)
-
-
-
-/*fun EPGScreen(viewModel: EPGViewModel) {
-    val channelState by viewModel.channelState.collectAsState()
-    val programState by viewModel.programState.collectAsState()
-    val epgWindowStartEpochSecondsFromVM by viewModel.epgWindowStartEpochSeconds.collectAsState()
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color.Transparent
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(Color(0xFF1A1C1E)),
-        ) {
-            val isLoadingChannels = channelState is Resource.Loading
-            val isLoadingProgramsOrEpoch = (channelState is Resource.Success && programState is Resource.Loading) ||
-                    (channelState is Resource.Success && programState is Resource.Success && epgWindowStartEpochSecondsFromVM == null && !(channelState as Resource.Success<List<AppChannel>>).data.isNullOrEmpty())
-
-            if (isLoadingChannels || isLoadingProgramsOrEpoch) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.tv_lottie_animation))
-                    LottieAnimation(composition = composition,
-                        iterations = LottieConstants.IterateForever,
-                        modifier = Modifier.size(380.dp)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    if (isLoadingChannels) Text("Loading channels...", color = Color.White)
-                    else if (programState is Resource.Loading) Text("Loading programs...", color = Color.White)
-                    else Text("Preparing EPG data...", color = Color.White)
-                }
-            } else if (channelState is Resource.Success && programState is Resource.Success && epgWindowStartEpochSecondsFromVM != null) {
-                val channels = (channelState as Resource.Success<List<AppChannel>>).data
-                val programs = (programState as Resource.Success<List<AppProgram>>).data
-                val currentEpgWindowStartEpochSeconds = epgWindowStartEpochSecondsFromVM!!
-
-                if (channels.isNullOrEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Nema dostupnih kanala.", color = Color.White)
-                    }
-                } else {
-                    EpgContent(
-                        channels = channels,
-                        programs = programs,
-                        //viewModel = viewModel,
-                        epgWindowStartEpochSeconds = currentEpgWindowStartEpochSeconds
-                    )
-                }
-            } else if (channelState is Resource.Error) {
-                val errorState = channelState as Resource.Error
-                ErrorStateDisplay(message = "Greška pri učitavanju kanala: ${errorState.message}") { viewModel.fetchChannelsAndInitialPrograms() }
-            } else if (programState is Resource.Error && channelState !is Resource.Loading) {
-                val errorState = programState as Resource.Error
-                ErrorStateDisplay(message = "Greška pri učitavanju programa: ${errorState.message}") {
-                    if (channelState is Resource.Success) {
-                        val currentChannels = (channelState as Resource.Success<List<AppChannel>>).data
-                        if (!currentChannels.isNullOrEmpty()) viewModel.loadProgramsForChannels(currentChannels)
-                        else viewModel.fetchChannelsAndInitialPrograms()
-                    } else {
-                        viewModel.fetchChannelsAndInitialPrograms()
-                    }
-                }
-            } else if (channelState is Resource.Success && programState is Resource.Success && epgWindowStartEpochSecondsFromVM == null && !(channelState as Resource.Success<List<AppChannel>>).data.isNullOrEmpty()) {
-                Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Text("Waiting for EPG start time...", color = Color.White)
-                }
-            }
-        }
-    }
-}*/
 
 
 
@@ -178,7 +104,7 @@ fun EPGScreen(viewModel: EPGViewModel) {
         color = Color.Transparent
     ) {
         Box(
-            modifier = Modifier.fillMaxSize().background(Color(0xFF1A1C1E)),
+            modifier = Modifier.fillMaxSize().background(BackgroundColor),
         ) {
             val isLoading = channelState is Resource.Loading || (channelState is Resource.Success && programState is Resource.Loading)
             val isSuccess = channelState is Resource.Success && programState is Resource.Success && epgWindowStartEpochSecondsFromVM != null
@@ -195,13 +121,13 @@ fun EPGScreen(viewModel: EPGViewModel) {
                         LottieAnimation(
                             composition = composition,
                             iterations = LottieConstants.IterateForever,
-                            modifier = Modifier.size(470.dp)
+                            modifier = Modifier.size(450.dp)
                         )
                     }
                 }
                 isSuccess -> {
                     val channels = (channelState as Resource.Success<List<AppChannel>>).data
-                    val programs = (programState as Resource.Success<List<AppProgram>>).data
+                    val programsByChannelId = (programState as Resource.Success<Map<String, List<AppProgram>>>).data
                     val currentEpgWindowStartEpochSeconds = epgWindowStartEpochSecondsFromVM!!
 
                     if (channels.isNullOrEmpty()) {
@@ -210,15 +136,16 @@ fun EPGScreen(viewModel: EPGViewModel) {
                         }
                     } else {
                         EpgContent(
+                            viewModel = viewModel,
                             channels = channels,
-                            programs = programs,
+                            programsByChannelId = programsByChannelId,
                             epgWindowStartEpochSeconds = currentEpgWindowStartEpochSeconds
                         )
                     }
                 }
                 isError -> {
                     val errorMessage = (channelState as? Resource.Error)?.message ?: (programState as? Resource.Error)?.message
-                    ErrorStateDisplay(message = "Error: ${errorMessage}") { viewModel.fetchChannelsAndInitialPrograms() }
+                    ErrorStateDisplay(message = "Error: $errorMessage") { viewModel.fetchChannelsAndInitialPrograms() }
                 }
                 else -> {
                     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -237,9 +164,6 @@ fun ErrorStateDisplay(message: String?, onRetry: () -> Unit) {
         Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) { Text("Pokušaj ponovo") }
     }
 }
-
-
-
 
 @Composable
 fun TimelineHeader(
@@ -285,8 +209,11 @@ fun TimelineHeader(
 }
 
 
+
+
 @Composable
 fun EpgChannelRow(
+    viewModel: EPGViewModel,
     channel: AppChannel,
     programsForThisChannel: List<AppProgram>,
     dpPerMinute: Dp,
@@ -298,18 +225,16 @@ fun EpgChannelRow(
     totalWidth: Dp,
     onProgramFocused: (program: AppProgram?) -> Unit
 ) {
+
+    val MAX_EMPTY_CHUNK_DURATION_SEC = 2 * 3600
+
     var focusedProgramId by remember { mutableStateOf<String?>(null) }
-    var focusedProgramStartTimeEpoch by remember { mutableStateOf<Long?>(null) }
+    var focusedProgramStartTimeEpoch by remember { mutableStateOf<Long?>(null)  }
     val firstVisibleProgram = remember(programsForThisChannel, globalTimelineStartEpochSeconds) {
         programsForThisChannel.firstOrNull { (it.startTimeEpoch + (it.durationSec ?: 0)) > globalTimelineStartEpochSeconds }
     }
     val firstProgramId = firstVisibleProgram?.programId
     val firstProgramStartTimeEpoch = firstVisibleProgram?.startTimeEpoch
-    val lastProgramId = remember(programsForThisChannel, globalTimelineStartEpochSeconds) {
-        val epgWindowEndEpochSeconds = globalTimelineStartEpochSeconds + (24 * 60 * 60)
-        programsForThisChannel.lastOrNull { it.startTimeEpoch < epgWindowEndEpochSeconds }?.programId
-    }
-
 
 
     Row(
@@ -322,16 +247,14 @@ fun EpgChannelRow(
             channel = channel,
             modifier = Modifier.width(EPG_CHANNEL_ITEM_WIDTH).fillMaxHeight(),
             focusRequester = focusRequesterForChannel,
-    // ISPRAVKA: Kreiramo novu lambda funkciju
             onFocusChangedAndIdCallback = { isFocused, channelId ->
-        // Unutar nje, pozivamo originalnu funkciju i dodajemo 'channel.logo'
                 onChannelFocusAndIdChanged(isFocused, channelId, channel.logo)
-            }
+            },
+            onFavoriteClick = { viewModel.onToggleFavorite(channel.channelId) }
 
         )
 
         Spacer(modifier = Modifier.width(SPACE_BETWEEN_CHANNEL_AND_PROGRAMS))
-
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -339,6 +262,7 @@ fun EpgChannelRow(
         ) {
             Row(
                 modifier = Modifier
+                    .focusGroup()
                     .width(totalWidth)
                     .horizontalScroll(horizontalScrollState)
                     .onKeyEvent { event ->
@@ -346,7 +270,6 @@ fun EpgChannelRow(
                         when (event.key) {
                             Key.DirectionLeft -> {
                                 if (focusedProgramId == firstProgramId && focusedProgramStartTimeEpoch == firstProgramStartTimeEpoch) {
-                                    //onProgramFocused(null)
                                     focusRequesterForChannel.requestFocus()
                                     return@onKeyEvent true
                                 }
@@ -370,10 +293,12 @@ fun EpgChannelRow(
                     val endsAfterWindow = programEndTimeSeconds > epgWindowEndEpochSeconds
 
                     if (!isInProgress) {
-                        val timeGapBeforeProgramSeconds = programStartTimeSeconds - lastVisualElementEndTimeSeconds
+                        val timeGapBeforeProgramSeconds =
+                            programStartTimeSeconds - lastVisualElementEndTimeSeconds
                         if (timeGapBeforeProgramSeconds > 0) {
-                            val gapWidth = ((timeGapBeforeProgramSeconds / 60f) * dpPerMinute.value).dp
-                            Spacer(modifier = Modifier.width(gapWidth))
+                            val gapWidth =
+                                ((timeGapBeforeProgramSeconds / 60f) * dpPerMinute.value).dp
+                            EmptyProgramCard(width = gapWidth, height = rowHeight)
                         } else {
                             Spacer(modifier = Modifier.width(FIXED_CARD_SPACING_DP))
                         }
@@ -382,14 +307,19 @@ fun EpgChannelRow(
                     val startPoint = maxOf(programStartTimeSeconds, globalTimelineStartEpochSeconds)
                     val endPoint = minOf(programEndTimeSeconds, epgWindowEndEpochSeconds)
                     val durationToUse = (endPoint - startPoint).coerceAtLeast(0)
+
                     if (durationToUse <= 0) continue
+
+                    if (isInProgress && durationToUse < 60) {
+                        continue
+                    }
                     val shapeToUse = when {
                         isInProgress -> inProgressCardShape()
                         endsAfterWindow -> cutOffEndCardShape()
                         else -> RoundedCornerShape(9.dp)
                     }
 
-                    // IZMENJENO: Pozivamo jednostavnu ProgramCard
+
                     ProgramCard(
                         program = program,
                         dpPerMinute = dpPerMinute,
@@ -406,14 +336,27 @@ fun EpgChannelRow(
                     )
                     lastVisualElementEndTimeSeconds = programEndTimeSeconds
                 }
+
+
+
+                if (lastVisualElementEndTimeSeconds < epgWindowEndEpochSeconds) {
+                    var finalGapSec = epgWindowEndEpochSeconds - lastVisualElementEndTimeSeconds
+
+
+                    while (finalGapSec > 0) {
+                        val chunkDurationSec =
+                            minOf(finalGapSec, MAX_EMPTY_CHUNK_DURATION_SEC.toLong())
+                        val chunkWidthDp = ((chunkDurationSec / 60f) * dpPerMinute.value).dp
+
+                        EmptyProgramCard(width = chunkWidthDp, height = rowHeight)
+
+                        finalGapSec -= chunkDurationSec
+                    }
+                }
             }
         }
     }
 }
-
-
-
-
 
 
 @Composable
@@ -422,7 +365,6 @@ fun ProgramDetailsView(targetProgram: AppProgram) {
         modifier = Modifier
             .fillMaxWidth()
             .height(PROGRAM_DETAILS_HEIGHT)
-        //contentAlignment = Alignment.Center
     ){
         Row(
             modifier = Modifier
@@ -457,7 +399,7 @@ fun ProgramDetailsView(targetProgram: AppProgram) {
                     val timeRangeString = "$startTimeString - $endTimeString"
                     val originalDurationInMinutes = (targetProgram.durationSec ?: 0) / 60
                     val durationString = remember(originalDurationInMinutes) {
-                        if (originalDurationInMinutes < 60) "$originalDurationInMinutes min"
+                        if (originalDurationInMinutes < 60) "$originalDurationInMinutes m"
                         else {
                             val hours = originalDurationInMinutes / 60
                             val minutes = originalDurationInMinutes % 60
@@ -466,29 +408,19 @@ fun ProgramDetailsView(targetProgram: AppProgram) {
                     }
                     val genreText = targetProgram.genre ?: ""
                     val metadataTextPart1 = "$dateString  $timeRangeString"
-                    val metadataTextPart2 = "$durationString    |    $genreText"
+                    val metadataTextPart2 = "$durationString   |   $genreText"
 
                     Text(text = metadataTextPart1, style = MaterialTheme.typography.bodyMedium, color = Color.LightGray)
-                    Text(text = "|", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                    Text(text = "|", style = MaterialTheme.typography.bodyMedium, color = Color.LightGray)
                     Text(text = metadataTextPart2, style = MaterialTheme.typography.bodyMedium, color = Color.LightGray)
-
                     Spacer(modifier = Modifier.width(22.dp))
-
-
-
                     Image(painter = painterResource(id = R.drawable.icon_dolby), contentDescription = "dolby", modifier = Modifier.height(14.dp), alpha = 1f)
                     Image(painter = painterResource(id = R.drawable.icon_ad), contentDescription = "ad", modifier = Modifier.height(12.5.dp), alpha = 1f)
                     Image(painter = painterResource(id = R.drawable.icon_hd), contentDescription = "hd", modifier = Modifier.height(12.5.dp), alpha = 1f)
                     Spacer(modifier = Modifier.width(22.dp))
                     Image(painter = painterResource(id = R.drawable.icon_subtitles), contentDescription = "subtitles", modifier = Modifier.size(17.dp), alpha = 1f)
-
-
-
                     Text(text = "TRACK 1", style = MaterialTheme.typography.bodyMedium, color = Color.LightGray.copy(alpha = 1f), fontWeight = FontWeight.Bold)
-
                     Spacer(modifier = Modifier.width(22.dp))
-
-
                     Image(painter = painterResource(id = R.drawable.icon_audio), contentDescription = "audio", modifier = Modifier.height(14.5.dp), alpha = 1f)
 
                     if (!targetProgram.language.isNullOrBlank()) {
@@ -515,6 +447,7 @@ fun ProgramDetailsView(targetProgram: AppProgram) {
     }
 
 }
+
 @Composable
 fun ProgramCard(
     program: AppProgram,
@@ -526,15 +459,18 @@ fun ProgramCard(
 ) {
     val programDurationMinutes = durationSec / 60f
     val programWidth = (programDurationMinutes * dpPerMinute.value).dp
+
     var isFocused by remember { mutableStateOf(false) }
-    val baseFocusedColor = Color(0xFFB9B7B7)
-    val baseUnfocusedColor = Color(0xFF1E2329)
+
     val cardAlpha = 0.53f
     val containerColor by animateColorAsState(
-        targetValue = if (isFocused) baseFocusedColor.copy(alpha = 1f) else baseUnfocusedColor.copy(alpha = cardAlpha),
+        targetValue = if (isFocused) FocusedProgramCardColor.copy(alpha = 1f) else UnfocusedProgramCardColor.copy(alpha = cardAlpha),
         animationSpec = tween(100),
         label = "ProgramCardContainerColorFocus"
     )
+
+    val spacingWidth = 3.dp
+
 
     Card(
         modifier = Modifier
@@ -546,11 +482,14 @@ fun ProgramCard(
             }
             .focusable(true),
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = containerColor)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(end = spacingWidth)
+                .background(color = containerColor, shape = shape)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -558,6 +497,37 @@ fun ProgramCard(
                 text = program.title,
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isFocused) Color.Black else Color.LightGray,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun EmptyProgramCard(width: Dp, height: Dp) {
+    Card(
+        modifier = Modifier
+            .width(width)
+            .height(height - 4.dp)
+            // VAŽNO: Ova kartica ne sme biti fokusabilna
+            .focusable(false),
+        shape = RoundedCornerShape(9.dp),
+        // Koristimo tamniju, poluprovidnu boju da se razlikuje
+        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.2f)),
+        border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.2f))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 6.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = "No Information Available",
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic), // Kurziv za stil
+                color = Color.Gray,
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -595,7 +565,7 @@ fun CurrentTimeText() {
 
 private fun getCurrentFormattedTime(): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-@Composable
+/*@Composable
 fun ChannelItem(
     channel: AppChannel,
     modifier: Modifier = Modifier,
@@ -632,23 +602,85 @@ fun ChannelItem(
             AsyncImage(model = channel.logo, contentDescription = channel.name, modifier = Modifier.height(55.dp).width(88.dp).clip(RoundedCornerShape(9.dp)), contentScale = ContentScale.FillBounds)
         }
     }
+}*/
+
+
+@Composable
+fun ChannelItem(
+    channel: AppChannel,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester,
+    onFocusChangedAndIdCallback: (isFocused: Boolean, channelId: String) -> Unit,
+    onFavoriteClick: () -> Unit
+) {
+    var isFocusedState by remember { mutableStateOf(false) }
+    val containerColor by animateColorAsState(if (isFocusedState) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) else Color.Transparent, tween(100), label = "ChannelItemContainerColorFocus")
+    val borderColor by animateColorAsState(if (isFocusedState) Color.White else Color.Transparent, tween(100), label = "ChannelItemBorderColorFocus")
+
+    Card(
+        modifier = modifier
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                isFocusedState = focusState.isFocused
+                onFocusChangedAndIdCallback(focusState.isFocused, channel.channelId)
+            }
+            .clickable { onFavoriteClick() }
+            .focusable(true),
+        shape = RoundedCornerShape(9.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        border = BorderStroke(if (isFocusedState) 0.05.dp else 0.dp, borderColor)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 1.7.dp, vertical = 0.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = channel.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 10.sp,
+                    color = if (isFocusedState) Color.White else Color.LightGray,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.StartEllipsis
+                )
+                Spacer(modifier = Modifier.width(1.2.dp))
+                AsyncImage(
+                    model = channel.logo,
+                    contentDescription = channel.name,
+                    modifier = Modifier.height(55.dp).width(88.dp).clip(RoundedCornerShape(9.dp)),
+                    contentScale = ContentScale.FillBounds
+                )
+            }
+
+
+            if (channel.isFavorite) {
+                Icon(
+                    painter = painterResource(id = R.drawable.heart_filled),
+                    contentDescription = "Favorite",
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 4.dp, end = 4.dp)
+                        .size(24.dp),
+                    tint = Color.Red
+                )
+            }
+        }
+    }
 }
 
 
 
 
-//probavanje nove EPGContent//
+
 @Composable
 fun EpgContent(
+    viewModel: EPGViewModel,
     channels: List<AppChannel>,
-    programs: List<AppProgram>,
+    programsByChannelId: Map<String,List<AppProgram>>,
     epgWindowStartEpochSeconds: Long
 ) {
-    val programsByChannelId = remember(programs, channels) {
-        programs.groupBy { it.channelId }
-            .mapValues { entry -> entry.value.sortedBy { it.startTimeEpoch } }
-    }
-    //var focusedChannelLogoUrl by remember { mutableStateOf<String?>(null) }
+
     var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val initialLastFocusedId = remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
@@ -684,19 +716,10 @@ fun EpgContent(
     Box(modifier = Modifier.fillMaxSize()) {
         val imageOverallAlpha = 0.42f
         val imageFadeEdgeLength = 50.dp
-        val imageFadeToColor = gradientStartColor
+        val imageFadeToColor = BackgroundColor
         val imageBoxHeight = 243.dp
         val imageBoxWidth = remember(imageBoxHeight) { (imageBoxHeight.value * 16 / 9).dp }
 
-        /*focusedChannelLogoUrl?.let { logoUrl ->
-            Box(
-                modifier = Modifier.align(Alignment.TopEnd).width(imageBoxWidth).height(imageBoxHeight)
-            ) {
-                AsyncImage(model = logoUrl, contentDescription = "Pozadinska slika kanala", modifier = Modifier.matchParentSize().alpha(imageOverallAlpha), contentScale = ContentScale.FillBounds)
-                Box(Modifier.align(Alignment.CenterStart).width(imageFadeEdgeLength).fillMaxHeight().background(brush = Brush.horizontalGradient(listOf(imageFadeToColor, Color.Transparent))))
-                Box(Modifier.align(Alignment.BottomCenter).height(imageFadeEdgeLength).fillMaxWidth().background(brush = Brush.verticalGradient(listOf(Color.Transparent, imageFadeToColor))))
-            }
-        }*/
 
         imageUrlForTopRight?.let { imageUrl ->
 
@@ -782,6 +805,7 @@ fun EpgContent(
                     }
 
                     EpgChannelRow(
+                        viewModel = viewModel,
                         channel = channel,
                         programsForThisChannel = programsByChannelId[channel.channelId] ?: emptyList(),
                         dpPerMinute = DP_PER_MINUTE,
@@ -811,6 +835,7 @@ fun EpgContent(
         }
     }
 }
+
 
 
 
