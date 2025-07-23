@@ -44,9 +44,9 @@ class EPGViewModel(
     }
 
     private fun getSnappedEpgStartTime(): Long {
-        val calendar = Calendar.getInstance() // Uzimamo TRENUTNO vreme
+        val calendar = Calendar.getInstance()
 
-        // Prvo "zaokružimo" TRENUTNO vreme na donjih pola sata
+
         val minutes = calendar.get(Calendar.MINUTE)
         if (minutes >= 30) {
             calendar.set(Calendar.MINUTE, 30)
@@ -54,11 +54,11 @@ class EPGViewModel(
             calendar.set(Calendar.MINUTE, 0)
         }
 
-        // Resetujemo sekunde i milisekunde za čistu vrednost
+
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
 
-        // Sada, od tog zaokruženog vremena, oduzmemo 30 minuta da bismo uvek videli malo prošlosti
+
         calendar.add(Calendar.MINUTE, -30)
 
         return calendar.timeInMillis / 1000
@@ -165,38 +165,35 @@ class EPGViewModel(
     private fun sanitizeAndGroupPrograms(programs: List<AppProgram>): Map<String, List<AppProgram>> {
         if (programs.isEmpty()) return emptyMap()
 
-        // Grupišemo programe po ID-ju kanala da bismo ih obrađivali odvojeno
+
         val programsByChannel = programs.groupBy { it.channelId }
         val finalSanitizedMap = mutableMapOf<String, List<AppProgram>>()
 
-        // Prolazimo kroz programe za svaki kanal pojedinačno
+
         for ((channelId, channelPrograms) in programsByChannel) {
             if (channelPrograms.isEmpty()) continue
 
-            // 1. Sortiramo programe po vremenu početka, što je ključno
+
             val sortedPrograms = channelPrograms.sortedBy { it.startTimeEpoch }
 
             val sanitizedChannelList = mutableListOf<AppProgram>()
-            sanitizedChannelList.add(sortedPrograms.first()) // Uvek dodajemo prvi program u listu
+            sanitizedChannelList.add(sortedPrograms.first()) // Add first program in list
 
-            // Prolazimo kroz ostatak programa i proveravamo preklapanja
             for (i in 1 until sortedPrograms.size) {
                 val currentProgram = sortedPrograms[i]
                 val lastAddedProgram = sanitizedChannelList.last()
                 val lastAddedProgramEndTime = lastAddedProgram.startTimeEpoch + (lastAddedProgram.durationSec ?: 0)
 
-                // Ako trenutni program počinje PRE nego što se prethodni završio,
-                // on se preklapa i njega preskačemo.
+
                 if (currentProgram.startTimeEpoch < lastAddedProgramEndTime) {
                     Log.w(
                         "EPG_SANITIZER",
                         "On channel $channelId, removing overlapping program: '${currentProgram.title}' starting at ${currentProgram.startTimeEpoch} because previous ends at $lastAddedProgramEndTime"
                     )
-                    continue // Preskoči ovaj preklapajući program
+                    continue
                 }
                 sanitizedChannelList.add(currentProgram)
             }
-            // Dodajemo "očišćenu" listu za ovaj kanal u finalnu listu
             finalSanitizedMap[channelId] = sanitizedChannelList
         }
         return finalSanitizedMap
