@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.EPG" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>
