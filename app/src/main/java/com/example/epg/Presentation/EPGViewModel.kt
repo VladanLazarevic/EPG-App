@@ -43,7 +43,7 @@ class EPGViewModel(
         fetchChannelsAndInitialPrograms()
     }
 
-    private fun getSnappedEpgStartTime(): Long {
+    /*private fun getSnappedEpgStartTime(): Long {
         val calendar = Calendar.getInstance()
 
 
@@ -60,6 +60,25 @@ class EPGViewModel(
 
 
         calendar.add(Calendar.MINUTE, -30)
+
+        return calendar.timeInMillis / 1000
+    }*/
+
+    //new -> test
+
+    private fun getSnappedEpgStartTime(): Long {
+        val calendar = Calendar.getInstance()
+
+
+        val minutes = calendar.get(Calendar.MINUTE)
+        if (minutes < 30) {
+            calendar.add(Calendar.HOUR_OF_DAY, -1)
+        }
+
+        calendar.set(Calendar.MINUTE, 30)
+
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
 
         return calendar.timeInMillis / 1000
     }
@@ -134,10 +153,10 @@ class EPGViewModel(
                     val finalProgramMap = withContext(Dispatchers.Default) {
                         Log.d(TAG, "Starting data processing on background thread...")
 
-                        // 1. Filtriranje
+
                         val filteredByDurationList = appProgramList.filter { (it.durationSec ?: 0) >= 60 }
 
-                        // 2. Sanitacija i grupisanje
+
                         sanitizeAndGroupPrograms(filteredByDurationList)
                     }
 

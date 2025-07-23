@@ -121,7 +121,7 @@ fun EPGScreen(viewModel: EPGViewModel) {
                         LottieAnimation(
                             composition = composition,
                             iterations = LottieConstants.IterateForever,
-                            modifier = Modifier.size(450.dp)
+                            modifier = Modifier.size(499.dp)
                         )
                     }
                 }
@@ -526,7 +526,7 @@ fun EmptyProgramCard(width: Dp, height: Dp) {
         ) {
             Text(
                 text = "No Information Available",
-                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic), // Kurziv za stil
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                 color = Color.Gray,
                 fontSize = 10.sp,
                 maxLines = 1,
@@ -565,44 +565,7 @@ fun CurrentTimeText() {
 
 private fun getCurrentFormattedTime(): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-/*@Composable
-fun ChannelItem(
-    channel: AppChannel,
-    modifier: Modifier = Modifier,
-    focusRequester: FocusRequester,
-    onFocusChangedAndIdCallback: (isFocused: Boolean, channelId: String) -> Unit
-) {
-    var isFocusedState by remember { mutableStateOf(false) }
-    val containerColor by animateColorAsState(if (isFocusedState) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) else Color.Transparent,
-        tween(100), label = "ChannelItemContainerColorFocus"
-    )
-    val borderColor by animateColorAsState(if (isFocusedState) Color.White else Color.Transparent,
-        tween(100), label = "ChannelItemBorderColorFocus"
-    )
-    Card(
-        modifier = modifier.focusRequester(focusRequester).onFocusChanged { focusState ->
-            isFocusedState = focusState.isFocused
-            onFocusChangedAndIdCallback(focusState.isFocused, channel.channelId)
-        }.focusable(true),
-        shape = RoundedCornerShape(9.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = BorderStroke(if (isFocusedState) 0.05.dp else 0.dp, borderColor)
-    ) {
-        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 1.7.dp, vertical = 0.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = channel.name,
-                style = MaterialTheme.typography.bodySmall,
-                fontSize = 10.sp,
-                color = if (isFocusedState) Color.White else Color.LightGray,
-                modifier = Modifier.weight(1f),
-                maxLines = 2,
-                overflow = TextOverflow.StartEllipsis
-            )
-            Spacer(modifier = Modifier.width(1.2.dp))
-            AsyncImage(model = channel.logo, contentDescription = channel.name, modifier = Modifier.height(55.dp).width(88.dp).clip(RoundedCornerShape(9.dp)), contentScale = ContentScale.FillBounds)
-        }
-    }
-}*/
+
 
 
 @Composable
@@ -701,7 +664,7 @@ fun EpgContent(
         animatedProgramState = focusedProgram
     }
 
-    //BackHandler
+
     BackHandler(enabled = focusedProgram != null) {
 
         val targetRequester = channels
