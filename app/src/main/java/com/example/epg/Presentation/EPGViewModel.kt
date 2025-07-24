@@ -183,6 +183,8 @@ class EPGViewModel(
 
     private fun sanitizeAndGroupPrograms(programs: List<AppProgram>): Map<String, List<AppProgram>> {
         if (programs.isEmpty()) return emptyMap()
+        // NOVO: Definišemo trenutno vreme ovde, unutar funkcije
+        val currentTimeSec = System.currentTimeMillis() / 1000
 
 
         val programsByChannel = programs.groupBy { it.channelId }
@@ -213,7 +215,14 @@ class EPGViewModel(
                 }
                 sanitizedChannelList.add(currentProgram)
             }
-            finalSanitizedMap[channelId] = sanitizedChannelList
+            // Ovaj deo izračunava 'isLive' status za svaki program
+            val listWithLiveStatus = sanitizedChannelList.map { program ->
+                val programEndTime = program.startTimeEpoch + (program.durationSec ?: 0)
+                val isCurrentlyLive = currentTimeSec >= program.startTimeEpoch && currentTimeSec < programEndTime
+                program.copy(isLive = isCurrentlyLive)
+            }
+
+            finalSanitizedMap[channelId] = listWithLiveStatus
         }
         return finalSanitizedMap
     }

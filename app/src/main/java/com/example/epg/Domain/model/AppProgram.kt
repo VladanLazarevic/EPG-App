@@ -10,7 +10,8 @@ data class AppProgram(
     val thumbnail: String?,
     val genre: String?,
     val startTime: String,
-    val language: String?
+    val language: String?,
+    val isLive: Boolean = false
 )
 
 

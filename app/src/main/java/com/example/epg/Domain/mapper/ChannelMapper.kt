@@ -11,7 +11,6 @@ object ChannelMapper {
             name = serverChannel.name,
             playbackUrl = serverChannel.playbackUrl,
             logo = serverChannel.logo
-
         )
     }
 

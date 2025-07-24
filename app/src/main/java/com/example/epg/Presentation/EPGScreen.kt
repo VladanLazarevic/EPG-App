@@ -2,6 +2,7 @@ package com.example.epg.Presentation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+//import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -72,6 +73,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.animation.core.animateDpAsState
 
 
 private val EPG_SIDE_PADDING = 35.dp
@@ -469,14 +471,22 @@ fun ProgramCard(
     var isFocused by remember { mutableStateOf(false) }
 
     val cardAlpha = 0.53f
-    val containerColor by animateColorAsState(
+    val containerrColor by animateColorAsState(
         targetValue = if (isFocused) FocusedProgramCardColor.copy(alpha = 1f) else UnfocusedProgramCardColor.copy(alpha = cardAlpha),
         animationSpec = tween(100),
         label = "ProgramCardContainerColorFocus"
     )
 
     val spacingWidth = 3.dp
+    // Icon + Space
+    val iconAreaWidth = 24.dp // 18icon + 6dp Space
 
+    // NOVO: Animiramo pomeraj (offset) za tekst
+    val textOffset by animateDpAsState(
+        targetValue = if (isFocused && program.isLive) iconAreaWidth else 0.dp,
+        animationSpec = tween(durationMillis = 200),
+        label = "TextOffsetAnimation"
+    )
 
     Card(
         modifier = Modifier
@@ -495,17 +505,34 @@ fun ProgramCard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(end = spacingWidth)
-                .background(color = containerColor, shape = shape)
+                .clip(shape)
+                .background(color = containerrColor, shape = shape)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             contentAlignment = Alignment.CenterStart
         ) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isFocused && program.isLive,
+                enter = fadeIn(animationSpec = tween(150)),
+                exit = fadeOut(animationSpec = tween(150))
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.icon_play),
+                    contentDescription = "Play",
+                    tint = if (isFocused) Color.Black else Color.LightGray,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
             Text(
                 text = program.title,
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isFocused) Color.Black else Color.LightGray,
                 fontSize = 10.sp,
+                fontWeight = if (isFocused && program.isLive) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.offset(x = textOffset)
+
             )
         }
     }
