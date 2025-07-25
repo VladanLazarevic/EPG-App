@@ -117,6 +117,11 @@ dependencies {
     implementation(libs.androidx.media3.common.ktx)
     implementation("androidx.activity:activity-ktx:1.8.0")
 
+    //EXO PLAYER
+    // androidx.media3 je najnovija verzija ExoPlayer-a
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-ui:1.3.1")
+
     //LOTTIE ANIMACIJE//
     implementation(libs.lottie.compose) // Proveri najnoviju verziju (možda je sada 6.3.0 ili novija)
 

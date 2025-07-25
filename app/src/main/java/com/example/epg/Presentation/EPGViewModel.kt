@@ -34,10 +34,16 @@ class EPGViewModel(
     private val _programState = MutableStateFlow<Resource<Map<String, List<AppProgram>>>>(Resource.Loading)
     val programState: StateFlow<Resource<Map<String, List<AppProgram>>>> = _programState.asStateFlow()
 
+
+
     private val _epgWindowStartEpochSeconds = MutableStateFlow<Long?>(null)
     val epgWindowStartEpochSeconds: StateFlow<Long?> = _epgWindowStartEpochSeconds.asStateFlow()
 
     private val TAG = "EPGViewModel"
+
+
+
+
 
     init {
         fetchChannelsAndInitialPrograms()

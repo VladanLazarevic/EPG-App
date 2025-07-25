@@ -74,6 +74,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.ui.PlayerView
 
 
 private val EPG_SIDE_PADDING = 35.dp
@@ -458,6 +462,7 @@ fun ProgramDetailsView(targetProgram: AppProgram) {
 
 @Composable
 fun ProgramCard(
+    //modifier: Modifier = Modifier,
     program: AppProgram,
     dpPerMinute: Dp,
     height: Dp,
@@ -528,7 +533,7 @@ fun ProgramCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isFocused) Color.Black else Color.LightGray,
                 fontSize = 10.sp,
-                fontWeight = if (isFocused && program.isLive) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (isFocused && program.isLive) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.offset(x = textOffset)
@@ -538,64 +543,33 @@ fun ProgramCard(
     }
 }
 
-/*@Composable
-fun EmptyProgramCard(width: Dp, height: Dp) {
-    Card(
-        modifier = Modifier
-            .width(width)
-            .height(height - 4.dp)
-            // VAŽNO: Ova kartica ne sme biti fokusabilna
-            .focusable(false),
-        shape = RoundedCornerShape(9.dp),
-        // Koristimo tamniju, poluprovidnu boju da se razlikuje
-        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.2f)),
-        border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.2f))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 6.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Text(
-                text = "No Information Available",
-                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                color = Color.Gray,
-                fontSize = 10.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}*/
 
-//testiranje
+
 @Composable
 fun EmptyProgramCard(width: Dp, height: Dp) {
-    // Definišemo razmak da bude isti kao kod ProgramCard
     val spacingWidth = 3.dp
 
-    // Spoljna kartica je sada providna i zauzima punu širinu praznine
+
     Card(
         modifier = Modifier
             .width(width)
             .height(height - 4.dp)
             .focusable(false),
         shape = RoundedCornerShape(9.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent), // Providna pozadina
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // Gasimo senku
-        border = null // Uklanjamo stari border jer ćemo ga dodati na Box unutra
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = null
     ) {
-        // Unutrašnji Box nosi boju i sadržaj, i malo je uži
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(end = spacingWidth) // Ostavljamo 3dp prostora sa desne strane
+                .padding(end = spacingWidth)
                 .background(
                     color = Color.Black.copy(alpha = 0.2f),
                     shape = RoundedCornerShape(9.dp)
                 )
-                .border( // Dodajemo border ovde da prati obojeni deo
+                .border(
                     width = 1.dp,
                     color = Color.Gray.copy(alpha = 0.2f),
                     shape = RoundedCornerShape(9.dp)
@@ -733,6 +707,7 @@ fun EpgContent(
 ) {
 
 
+
     var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val initialLastFocusedId = remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
@@ -745,6 +720,7 @@ fun EpgContent(
     val sharedHorizontalScrollState = rememberScrollState()
     val totalEpgWidth = remember(DP_PER_MINUTE) { (24 * 60 * DP_PER_MINUTE.value).dp }
     var focusedProgram by remember { mutableStateOf<AppProgram?>(null) }
+
 
     var animatedProgramState by remember { mutableStateOf<AppProgram?>(null) }
 
@@ -784,34 +760,33 @@ fun EpgContent(
             ) {
 
                 AsyncImage(model = imageUrl, contentDescription = "Pozadinska slika", modifier = Modifier
-                    .matchParentSize()
-                    .alpha(imageOverallAlpha), contentScale = ContentScale.Fit)
-                Box(Modifier
-                    .align(Alignment.CenterStart)
-                    .width(imageFadeEdgeLength)
-                    .fillMaxHeight()
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            listOf(
-                                imageFadeToColor,
-                                Color.Transparent
-                            )
-                        )
-                    ))
-                Box(Modifier
-                    .align(Alignment.BottomCenter)
-                    .height(imageFadeEdgeLength)
-                    .fillMaxWidth()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            listOf(
-                                Color.Transparent,
-                                imageFadeToColor
-                            )
-                        )
-                    ))
+                            .matchParentSize()
+                            .alpha(imageOverallAlpha), contentScale = ContentScale.Fit)
+                Box(Modifier.align(Alignment.CenterStart)
+                            .width(imageFadeEdgeLength)
+                            .fillMaxHeight()
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    listOf(
+                                        imageFadeToColor,
+                                        Color.Transparent
+                                    )
+                                )
+                            ))
+                Box(Modifier.align(Alignment.BottomCenter)
+                            .height(imageFadeEdgeLength)
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    listOf(
+                                        Color.Transparent,
+                                        imageFadeToColor
+                                    )
+                                )
+                            ))
+                    }
+                }
             }
-        }
 
         Column(modifier = Modifier.fillMaxSize()) {
             /*Box(
@@ -916,7 +891,7 @@ fun EpgContent(
             }
         }
     }
-}
+
 
 
 
