@@ -233,7 +233,9 @@ fun EpgChannelRow(
     globalTimelineStartEpochSeconds: Long,
     horizontalScrollState: ScrollState,
     totalWidth: Dp,
-    onProgramFocused: (program: AppProgram?) -> Unit
+    onProgramFocused: (program: AppProgram?) -> Unit,
+    currentTimeInEpochSeconds: Long
+
 ) {
 
     val MAX_EMPTY_CHUNK_DURATION_SEC = 2 * 3600
@@ -278,8 +280,25 @@ fun EpgChannelRow(
                     .width(totalWidth)
                     .horizontalScroll(horizontalScrollState)
                     .onKeyEvent { event ->
-                        if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                        when (event.key) {
+                        if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionLeft) {
+                            return@onKeyEvent false
+                        }
+                        // Proveravamo da li je prva stvar u redu "praznina" (No Info kartica)
+                        val isFirstElementAGap = firstVisibleProgram != null &&
+                                firstVisibleProgram.startTimeEpoch > globalTimelineStartEpochSeconds
+
+                        // Proveravamo da li je fokus na prvom pravom programu
+                        val isFocusOnFirstRealProgram = focusedProgramId == firstVisibleProgram?.programId
+
+                        // Proveravamo da li je fokus na prvoj "No Info" kartici
+                        val isFocusOnFirstGapCard = focusedProgramId == "gap_${globalTimelineStartEpochSeconds}"
+                        if ((!isFirstElementAGap && isFocusOnFirstRealProgram) || (isFirstElementAGap && isFocusOnFirstGapCard)) {
+                            focusRequesterForChannel.requestFocus()
+                            return@onKeyEvent true
+                        }
+                        false
+
+                        /*when (event.key) {
                             Key.DirectionLeft -> {
                                 if (focusedProgramId == firstProgramId && focusedProgramStartTimeEpoch == firstProgramStartTimeEpoch) {
                                     focusRequesterForChannel.requestFocus()
@@ -287,12 +306,12 @@ fun EpgChannelRow(
                                 }
                             }
 
-                        }
-                        false
+                        }*/
+                        //false
                     }
             ) {
                 var lastVisualElementEndTimeSeconds = globalTimelineStartEpochSeconds
-                val epgWindowEndEpochSeconds = globalTimelineStartEpochSeconds + (27 * 60 * 60)
+                val epgWindowEndEpochSeconds = globalTimelineStartEpochSeconds + (24 * 60 * 60)
 
                 for (program in programsForThisChannel) {
                     val programStartTimeSeconds = program.startTimeEpoch
@@ -310,7 +329,11 @@ fun EpgChannelRow(
                         if (timeGapBeforeProgramSeconds > 0) {
                             val gapWidth =
                                 ((timeGapBeforeProgramSeconds / 60f) * dpPerMinute.value).dp
-                            EmptyProgramCard(width = gapWidth, height = rowHeight)
+                            EmptyProgramCard(
+                                width = gapWidth,
+                                height = rowHeight,
+                                onFocus = {onProgramFocused(null)}
+                                )
                         } else {
                             Spacer(modifier = Modifier.width(FIXED_CARD_SPACING_DP))
                         }
@@ -344,7 +367,9 @@ fun EpgChannelRow(
                                 focusedProgramStartTimeEpoch = program.startTimeEpoch
                                 onProgramFocused(program)
                             }
-                        }
+                        },
+                        // NOVO: Prosleđujemo vreme u ProgramCard
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
                     )
                     lastVisualElementEndTimeSeconds = programEndTimeSeconds
                 }
@@ -360,7 +385,11 @@ fun EpgChannelRow(
                             minOf(finalGapSec, MAX_EMPTY_CHUNK_DURATION_SEC.toLong())
                         val chunkWidthDp = ((chunkDurationSec / 60f) * dpPerMinute.value).dp
 
-                        EmptyProgramCard(width = chunkWidthDp, height = rowHeight)
+                        EmptyProgramCard(
+                            width = chunkWidthDp,
+                            height = rowHeight,
+                            onFocus = { onProgramFocused(null)}
+                        )
 
                         finalGapSec -= chunkDurationSec
                     }
@@ -468,12 +497,18 @@ fun ProgramCard(
     height: Dp,
     durationSec: Long,
     shape: Shape,
-    onFocusChanged: (isFocused: Boolean) -> Unit
+    onFocusChanged: (isFocused: Boolean) -> Unit,
+    currentTimeInEpochSeconds: Long // NOVI PARAMETAR
 ) {
     val programDurationMinutes = durationSec / 60f
     val programWidth = (programDurationMinutes * dpPerMinute.value).dp
 
     var isFocused by remember { mutableStateOf(false) }
+    // NOVO: Dinamička provera da li je program "live"
+    val isCurrentlyLive = remember(program, currentTimeInEpochSeconds) {
+        val programEndTime = program.startTimeEpoch + (program.durationSec ?: 0)
+        currentTimeInEpochSeconds >= program.startTimeEpoch && currentTimeInEpochSeconds < programEndTime
+    }
 
     val cardAlpha = 0.53f
     val containerrColor by animateColorAsState(
@@ -482,13 +517,13 @@ fun ProgramCard(
         label = "ProgramCardContainerColorFocus"
     )
 
-    val spacingWidth = 3.dp
+    val spacingWidth = 4.5.dp
     // Icon + Space
     val iconAreaWidth = 24.dp // 18icon + 6dp Space
 
-    // NOVO: Animiramo pomeraj (offset) za tekst
+    //slide right
     val textOffset by animateDpAsState(
-        targetValue = if (isFocused && program.isLive) iconAreaWidth else 0.dp,
+        targetValue = if (isFocused && isCurrentlyLive) iconAreaWidth else 0.dp,
         animationSpec = tween(durationMillis = 200),
         label = "TextOffsetAnimation"
     )
@@ -516,7 +551,7 @@ fun ProgramCard(
             contentAlignment = Alignment.CenterStart
         ) {
             androidx.compose.animation.AnimatedVisibility(
-                visible = isFocused && program.isLive,
+                visible = isFocused && isCurrentlyLive,
                 enter = fadeIn(animationSpec = tween(150)),
                 exit = fadeOut(animationSpec = tween(150))
             ) {
@@ -533,7 +568,7 @@ fun ProgramCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isFocused) Color.Black else Color.LightGray,
                 fontSize = 10.sp,
-                fontWeight = if (isFocused && program.isLive) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = if (isFocused && isCurrentlyLive) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.offset(x = textOffset)
@@ -545,16 +580,16 @@ fun ProgramCard(
 
 
 
-@Composable
+/*@Composable
 fun EmptyProgramCard(width: Dp, height: Dp) {
-    val spacingWidth = 3.dp
+    val spacingWidth = 4.dp
 
 
     Card(
         modifier = Modifier
             .width(width)
             .height(height - 4.dp)
-            .focusable(false),
+            .focusable(true),
         shape = RoundedCornerShape(9.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -587,11 +622,80 @@ fun EmptyProgramCard(width: Dp, height: Dp) {
             )
         }
     }
+}*/
+@Composable
+fun EmptyProgramCard(width: Dp, height: Dp, onFocus: () -> Unit) {
+    val spacingWidth = 4.5.dp
+
+
+    var isFocused by remember { mutableStateOf(false) }
+
+
+    val focusedColor = FocusedProgramCardColor.copy(alpha = 1f)//Color.DarkGray.copy(alpha = 0.6f)
+    val unfocusedColor = Color.Black.copy(alpha = 0.2f) //UnfocusedProgramCardColor.copy(alpha = 0.53f)
+
+
+    val animatedColor by animateColorAsState(
+        targetValue = if (isFocused) focusedColor else unfocusedColor,
+        animationSpec = tween(100)
+    )
+
+    /*val cardAlpha = 0.53f
+    val containerrColor by animateColorAsState(
+        targetValue = if (isFocused) FocusedProgramCardColor.copy(alpha = 1f) else UnfocusedProgramCardColor.copy(alpha = cardAlpha),
+        animationSpec = tween(100),
+        label = "ProgramCardContainerColorFocus"
+    )*/
+
+    Card(
+        modifier = Modifier
+            .width(width)
+            .height(height - 4.dp)
+            .onFocusChanged { focusState ->
+                isFocused = focusState.isFocused
+                if(focusState.isFocused) {
+                    onFocus()
+                }
+            }
+            .focusable(true),
+        shape = RoundedCornerShape(9.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = null
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(end = spacingWidth)
+                .background(
+                    color = animatedColor,
+                    shape = RoundedCornerShape(9.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    color = Color.Gray.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(9.dp)
+                )
+                .padding(horizontal = 6.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = "No Information Available",
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                //color = if (isFocused) Color.LightGray else Color.Gray,
+                color = if (isFocused) Color.Black else Color.LightGray,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }
 
 
+
 @Composable
-fun TopHeader() {
+fun TopHeader(currentTime: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -604,23 +708,23 @@ fun TopHeader() {
         Spacer(modifier = Modifier.width(40.dp))
         Text(text = "TV Guide", style = TextStyle(fontWeight = FontWeight.Normal, fontSize = 20.sp, color = Color.White))
         Spacer(modifier = Modifier.weight(1f))
-        CurrentTimeText()
+        CurrentTimeText(currentTime = currentTime)
     }
 }
 
 @Composable
-fun CurrentTimeText() {
-    var currentTime by remember { mutableStateOf(getCurrentFormattedTime()) }
+fun CurrentTimeText(currentTime: String) {
+    /*var currentTime by remember { mutableStateOf(getCurrentFormattedTime()) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
             currentTime = getCurrentFormattedTime()
         }
-    }
+    }*/
     Text(text = currentTime, style = TextStyle(fontWeight = FontWeight.Normal, fontSize = 24.sp, color = Color.White))
 }
 
-private fun getCurrentFormattedTime(): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+//private fun getCurrentFormattedTime(): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
 
 
@@ -686,7 +790,7 @@ fun ChannelItem(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(bottom = 4.dp, end = 4.dp)
-                        .size(24.dp),
+                        .size(26.dp),
                     tint = Color.Red
                 )
             }
@@ -705,6 +809,19 @@ fun EpgContent(
     programsByChannelId: Map<String,List<AppProgram>>,
     epgWindowStartEpochSeconds: Long
 ) {
+
+    // NOVO: Jedan izvor istine za trenutno vreme
+    var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeInEpochSeconds = System.currentTimeMillis() / 1000
+            delay(1000L) // Osvežavanje na 10 sekundi
+        }
+    }
+    // NOVO: Formatiraj vreme ovde
+    val formattedCurrentTime = remember(currentTimeInEpochSeconds) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentTimeInEpochSeconds * 1000L))
+    }
 
 
 
@@ -832,7 +949,7 @@ fun EpgContent(
                 if (animatedProgramState != null) {
                     ProgramDetailsView(targetProgram = animatedProgramState!!)
                 } else {
-                    TopHeader()
+                    TopHeader(currentTime = formattedCurrentTime)
                 }
             }
 
@@ -885,12 +1002,15 @@ fun EpgContent(
                             focusedProgram = program
                             val channelForProgram = channels.find { it.channelId == program?.channelId }
                             imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
-                        }
+                        },
+                        // NOVO: Prosleđujemo stanje o vremenu
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
                     )
                 }
             }
         }
     }
+
 
 
 
