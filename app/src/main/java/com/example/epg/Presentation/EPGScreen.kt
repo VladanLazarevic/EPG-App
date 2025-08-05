@@ -74,6 +74,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.MediaItem
@@ -657,7 +659,7 @@ fun EmptyProgramCard(width: Dp, height: Dp, onFocus: () -> Unit) {
                     onFocus()
                 }
             }
-            .focusable(true),
+            .focusable(false),
         shape = RoundedCornerShape(9.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -810,15 +812,15 @@ fun EpgContent(
     epgWindowStartEpochSeconds: Long
 ) {
 
-    // NOVO: Jedan izvor istine za trenutno vreme
+
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
     LaunchedEffect(Unit) {
         while (true) {
             currentTimeInEpochSeconds = System.currentTimeMillis() / 1000
-            delay(1000L) // Osvežavanje na 10 sekundi
+            delay(1000L)
         }
     }
-    // NOVO: Formatiraj vreme ovde
+
     val formattedCurrentTime = remember(currentTimeInEpochSeconds) {
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentTimeInEpochSeconds * 1000L))
     }
@@ -1009,7 +1011,78 @@ fun EpgContent(
                 }
             }
         }
+    // NOVO: Dodajemo TimeLineOverlay ovde
+    // Moramo ga postaviti unutar istog Box-a kao i Column, kako bi se iscrtao preko svega
+        TimeLineOverlay(
+            epgWindowStartEpochSeconds = epgWindowStartEpochSeconds,
+            dpPerMinute = DP_PER_MINUTE,
+            horizontalScrollState = sharedHorizontalScrollState,
+            channels = channels
+        )
     }
+
+
+@Composable
+fun TimeLineOverlay(
+    epgWindowStartEpochSeconds: Long,
+    dpPerMinute: Dp,
+    horizontalScrollState: ScrollState,
+    channels: List<AppChannel>
+) {
+    // Pratimo trenutno vreme
+    var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeInEpochSeconds = System.currentTimeMillis() / 1000
+            delay(1000L) // Osvežavaj svakih sekund
+        }
+    }
+
+    // Računamo poziciju linije
+    val minutesSinceEpgStart = (currentTimeInEpochSeconds - epgWindowStartEpochSeconds) / 60
+    val timelineOffset = (minutesSinceEpgStart * dpPerMinute.value).dp
+
+    // Ako je horizontalno skrolovanje u toku, prilagođavamo offset
+    val scrollOffset = with(LocalDensity.current) { horizontalScrollState.value.toDp() }
+    val finalOffset = timelineOffset - scrollOffset
+
+    // Koristimo Box da se iscrta vertikalna linija
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                start = EPG_SIDE_PADDING + EPG_CHANNEL_ITEM_WIDTH + SPACE_BETWEEN_CHANNEL_AND_PROGRAMS
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .offset(x = finalOffset)
+                .height(EPG_PROGRAM_ROW_HEIGHT * channels.size + (channels.size - 1) * 1.dp)
+                .width(4.dp) // Širina vaše linije
+        ) {
+            // SVG linija koju ste spomenuli
+            // Pretpostavljam da je ljubičasta boja, u ovom primeru ću koristiti Color.Magenta
+            // Umesto Box-a možete koristiti vašu SVG sliku
+            /*
+            Image(
+                painter = painterResource(id = R.drawable.vaša_linija_slika),
+                contentDescription = "Trenutno vreme",
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(4.dp) // Prilagodite
+            )
+            */
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(1.dp)
+                    .background(Color.Magenta.copy(alpha = 0.8f)) // Privremena linija ako nemate SVG
+            )
+        }
+    }
+}
+
+
 
 
 
