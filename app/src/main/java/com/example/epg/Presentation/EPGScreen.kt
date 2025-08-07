@@ -89,6 +89,7 @@ private val DP_PER_MINUTE = 6.dp
 private val SPACE_BETWEEN_CHANNEL_AND_PROGRAMS = 2.dp
 private val FIXED_CARD_SPACING_DP = 0.dp
 private val PROGRAM_DETAILS_HEIGHT = 200.dp
+private val TOP_HEADER_HEIGHT = 76.5.dp
 
 
 
@@ -500,7 +501,7 @@ fun ProgramCard(
     durationSec: Long,
     shape: Shape,
     onFocusChanged: (isFocused: Boolean) -> Unit,
-    currentTimeInEpochSeconds: Long // NOVI PARAMETAR
+    currentTimeInEpochSeconds: Long
 ) {
     val programDurationMinutes = durationSec / 60f
     val programWidth = (programDurationMinutes * dpPerMinute.value).dp
@@ -1017,7 +1018,8 @@ fun EpgContent(
             epgWindowStartEpochSeconds = epgWindowStartEpochSeconds,
             dpPerMinute = DP_PER_MINUTE,
             horizontalScrollState = sharedHorizontalScrollState,
-            channels = channels
+            channels = channels,
+            isProgramDetailsVisible = (animatedProgramState != null)
         )
     }
 
@@ -1027,7 +1029,8 @@ fun TimeLineOverlay(
     epgWindowStartEpochSeconds: Long,
     dpPerMinute: Dp,
     horizontalScrollState: ScrollState,
-    channels: List<AppChannel>
+    channels: List<AppChannel>,
+    isProgramDetailsVisible: Boolean
 ) {
     // Pratimo trenutno vreme
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
@@ -1046,8 +1049,15 @@ fun TimeLineOverlay(
     val scrollOffset = with(LocalDensity.current) { horizontalScrollState.value.toDp() }
     val finalOffset = timelineOffset - scrollOffset
 
+    // NOVO: Dinamički određujemo padding sa vrha
+    val topPadding = if (isProgramDetailsVisible) {
+        PROGRAM_DETAILS_HEIGHT
+    } else {
+        TOP_HEADER_HEIGHT
+    }
+
     // Koristimo Box da se iscrta vertikalna linija
-    Box(
+    /*Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(
@@ -1078,9 +1088,33 @@ fun TimeLineOverlay(
                     .width(1.dp)
                     .background(Color.Magenta.copy(alpha = 0.8f)) // Privremena linija ako nemate SVG
             )
-        }
+        }*/
+
+    //*****************TESTIRANJE**********************//
+    // Koristimo JEDAN Box za sve
+
+    val isVisible = finalOffset >= 0.dp
+
+    val lineColor = if (isVisible) Color(0xFFA269FF).copy(alpha = 0.7f) else Color.Transparent  //Color.Magenta.copy(alpha = 0.55f)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = topPadding + 12.8.dp)
+            .padding(
+                start = EPG_SIDE_PADDING + EPG_CHANNEL_ITEM_WIDTH + SPACE_BETWEEN_CHANNEL_AND_PROGRAMS
+            )
+            .offset(x = finalOffset)
+    ) {
+        // Current line
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(1.dp)
+                .background(lineColor)
+        )
     }
 }
+
 
 
 
