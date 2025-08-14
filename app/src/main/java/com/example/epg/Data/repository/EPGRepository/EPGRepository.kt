@@ -11,6 +11,7 @@ interface EPGRepository {
     suspend fun getChannels(): Result<List<AppChannel>>
     suspend fun getPrograms(channels: List<AppChannel>, startEpoch: Long, endEpoch: Long? = null): Result<List<AppProgram>>
     suspend fun toggleFavoriteStatus(channelId: String)
+    suspend fun getAuid(): String?
 }
 
 

@@ -29,6 +29,11 @@ class EPGRepositoryImpl(
 
     private val TAG = "EPGRepositoryImpl"
 
+
+    // NOVO: Implementacija nove funkcije
+    override suspend fun getAuid(): String? {
+        return auidRepository.getAuidString()
+    }
     override suspend fun getChannels(): Result<List<AppChannel>> {
         val auid = auidRepository.getAuidString()
         if (auid == null) {

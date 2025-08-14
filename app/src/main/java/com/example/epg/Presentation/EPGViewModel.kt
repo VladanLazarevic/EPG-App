@@ -1,5 +1,6 @@
 package com.example.epg.Presentation
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +20,7 @@ import androidx.compose.runtime.State
 import com.example.epg.Data.local.FavoriteManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.net.URLEncoder
 import java.util.Calendar
 
 
@@ -34,7 +36,9 @@ class EPGViewModel(
     private val _programState = MutableStateFlow<Resource<Map<String, List<AppProgram>>>>(Resource.Loading)
     val programState: StateFlow<Resource<Map<String, List<AppProgram>>>> = _programState.asStateFlow()
 
-
+    // NOVO: Stanje koje čuva program koji se trenutno pušta
+    private val _playingProgram = MutableStateFlow<AppProgram?>(null)
+    val playingProgram: StateFlow<AppProgram?> = _playingProgram.asStateFlow()
 
     private val _epgWindowStartEpochSeconds = MutableStateFlow<Long?>(null)
     val epgWindowStartEpochSeconds: StateFlow<Long?> = _epgWindowStartEpochSeconds.asStateFlow()
@@ -257,6 +261,29 @@ class EPGViewModel(
             }
         }
     }
+
+    // IZMENA: buildFinalUrl sada prima Context kao parametar
+    private suspend fun buildFinalUrl(templateUrl: String, context: Context, playerWidth: Int, playerHeight: Int): String {
+        var finalUrl = templateUrl
+        val appBundleId = context.packageName
+        //val auid = auidRepository.getAuidString() ?: ""
+        val auid = epgRepository.getAuid() ?: ""
+        val deviceId = auid // Privremeno rešenje
+
+        finalUrl = finalUrl.replace("{{APP_BUNDLE_ID}}", URLEncoder.encode(appBundleId, "UTF-8"))
+        finalUrl = finalUrl.replace("{{AUID}}", auid)
+        finalUrl = finalUrl.replace("{{DID}}", deviceId)
+        finalUrl = finalUrl.replace("{{AAID}}", deviceId)
+        finalUrl = finalUrl.replace("{{DNT}}", "1")
+        finalUrl = finalUrl.replace("{{US_PRIVACY}}", "1---")
+        finalUrl = finalUrl.replace("{{GDPR}}", "0")
+        finalUrl = finalUrl.replace("{{CONSENT}}", "")
+        finalUrl = finalUrl.replace("{{PLAYER_WIDTH}}", playerWidth.toString())
+        finalUrl = finalUrl.replace("{{PLAYER_HEIGHT}}", playerHeight.toString())
+        finalUrl = finalUrl.replace("{{PLATID}}", "android_tv")
+        return finalUrl
+    }
+
 
 
 }

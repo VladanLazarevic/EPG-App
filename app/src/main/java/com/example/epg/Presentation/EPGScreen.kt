@@ -81,7 +81,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.ui.PlayerView
 
-
+// U EPGScreen.kt, na vrhu
+private val PlayingProgramCardColor = Color(0xFFA269FF)
 private val EPG_SIDE_PADDING = 35.dp
 private val EPG_CHANNEL_ITEM_WIDTH = 177.dp
 private val EPG_PROGRAM_ROW_HEIGHT = 60.dp
@@ -130,7 +131,7 @@ fun EPGScreen(viewModel: EPGViewModel) {
                         LottieAnimation(
                             composition = composition,
                             iterations = LottieConstants.IterateForever,
-                            modifier = Modifier.size(499.dp)
+                            modifier = Modifier.size(550.dp)
                         )
                     }
                 }
@@ -237,7 +238,9 @@ fun EpgChannelRow(
     horizontalScrollState: ScrollState,
     totalWidth: Dp,
     onProgramFocused: (program: AppProgram?) -> Unit,
-    currentTimeInEpochSeconds: Long
+    currentTimeInEpochSeconds: Long,
+    onProgramClicked: (AppProgram) -> Unit,
+    playingProgram: AppProgram?
 
 ) {
 
@@ -291,7 +294,7 @@ fun EpgChannelRow(
                                 firstVisibleProgram.startTimeEpoch > globalTimelineStartEpochSeconds
 
                         // Proveravamo da li je fokus na prvom pravom programu
-                        val isFocusOnFirstRealProgram = focusedProgramId == firstVisibleProgram?.programId
+                        val isFocusOnFirstRealProgram = focusedProgramId == firstVisibleProgram?.programId && focusedProgramStartTimeEpoch == firstVisibleProgram?.startTimeEpoch
 
                         // Proveravamo da li je fokus na prvoj "No Info" kartici
                         val isFocusOnFirstGapCard = focusedProgramId == "gap_${globalTimelineStartEpochSeconds}"
@@ -372,7 +375,9 @@ fun EpgChannelRow(
                             }
                         },
                         // NOVO: Prosleđujemo vreme u ProgramCard
-                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
+                        playingProgram = playingProgram,
+                        onClick = { onProgramClicked(program) }
                     )
                     lastVisualElementEndTimeSeconds = programEndTimeSeconds
                 }
@@ -501,7 +506,9 @@ fun ProgramCard(
     durationSec: Long,
     shape: Shape,
     onFocusChanged: (isFocused: Boolean) -> Unit,
-    currentTimeInEpochSeconds: Long
+    currentTimeInEpochSeconds: Long,
+    playingProgram: AppProgram?,
+    onClick: () -> Unit,
 ) {
     val programDurationMinutes = durationSec / 60f
     val programWidth = (programDurationMinutes * dpPerMinute.value).dp
@@ -513,12 +520,26 @@ fun ProgramCard(
         currentTimeInEpochSeconds >= program.startTimeEpoch && currentTimeInEpochSeconds < programEndTime
     }
 
+    // NOVO: Proveravamo da li je BAŠ OVA kartica ona koja se pušta
+    val isPlaying = playingProgram?.programId == program.programId && playingProgram?.channelId == program.channelId
+
+
     val cardAlpha = 0.53f
     val containerrColor by animateColorAsState(
+        targetValue = when {
+            isPlaying -> PlayingProgramCardColor.copy(alpha = 0.8f) // Ljubičasta ako se pušta
+            isFocused -> FocusedProgramCardColor.copy(alpha = 1f)   // Bela/Siva ako je fokusirana
+            else -> UnfocusedProgramCardColor.copy(alpha = cardAlpha) // Tamna ako nije
+        },
+        animationSpec = tween(200),
+        label = "ProgramCardContainerColorFocus"
+    )
+
+    /*val containerrColor by animateColorAsState(
         targetValue = if (isFocused) FocusedProgramCardColor.copy(alpha = 1f) else UnfocusedProgramCardColor.copy(alpha = cardAlpha),
         animationSpec = tween(100),
         label = "ProgramCardContainerColorFocus"
-    )
+    )*/
 
     val spacingWidth = 4.5.dp
     // Icon + Space
@@ -526,7 +547,8 @@ fun ProgramCard(
 
     //slide right
     val textOffset by animateDpAsState(
-        targetValue = if (isFocused && isCurrentlyLive) iconAreaWidth else 0.dp,
+        //targetValue = if (isFocused && isCurrentlyLive) iconAreaWidth else 0.dp,
+        targetValue = if (isPlaying) iconAreaWidth else 0.dp,
         animationSpec = tween(durationMillis = 200),
         label = "TextOffsetAnimation"
     )
@@ -554,14 +576,15 @@ fun ProgramCard(
             contentAlignment = Alignment.CenterStart
         ) {
             androidx.compose.animation.AnimatedVisibility(
-                visible = isFocused && isCurrentlyLive,
+                visible = isPlaying, //isFocused && isCurrentlyLive,
                 enter = fadeIn(animationSpec = tween(150)),
                 exit = fadeOut(animationSpec = tween(150))
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.icon_play),
                     contentDescription = "Play",
-                    tint = if (isFocused) Color.Black else Color.LightGray,
+                    tint = Color.Black,
+                    //tint = if (isFocused) Color.Black else Color.LightGray,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -813,6 +836,9 @@ fun EpgContent(
     epgWindowStartEpochSeconds: Long
 ) {
 
+    // Slušamo stanje o programu koji se pušta (ovo već imaš)
+    val playingProgram by viewModel.playingProgram.collectAsState()
+
 
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
     LaunchedEffect(Unit) {
@@ -865,7 +891,7 @@ fun EpgContent(
         val imageOverallAlpha = 0.42f
         val imageFadeEdgeLength = 50.dp
         val imageFadeToColor = BackgroundColor
-        val imageBoxHeight = 243.dp
+        val imageBoxHeight = 280.dp
         val imageBoxWidth = remember(imageBoxHeight) { (imageBoxHeight.value * 16 / 9).dp }
 
 
@@ -1007,7 +1033,9 @@ fun EpgContent(
                             imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
                         },
                         // NOVO: Prosleđujemo stanje o vremenu
-                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
+                        playingProgram = playingProgram,
+                        onProgramClicked = { program -> viewModel.onProgramClicked(program) }
                     )
                 }
             }
@@ -1095,11 +1123,11 @@ fun TimeLineOverlay(
 
     val isVisible = finalOffset >= 0.dp
 
-    val lineColor = if (isVisible) Color(0xFFA269FF).copy(alpha = 0.7f) else Color.Transparent  //Color.Magenta.copy(alpha = 0.55f)
+    val lineColor = if (isVisible) Color(0xFFA269FF).copy(alpha = 0.75f) else Color.Transparent  //Color.Magenta.copy(alpha = 0.55f)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = topPadding + 12.8.dp)
+            .padding(top = topPadding + 17.dp)
             .padding(
                 start = EPG_SIDE_PADDING + EPG_CHANNEL_ITEM_WIDTH + SPACE_BETWEEN_CHANNEL_AND_PROGRAMS
             )
