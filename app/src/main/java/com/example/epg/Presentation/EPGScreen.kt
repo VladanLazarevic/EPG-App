@@ -74,12 +74,23 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.animation.core.animateDpAsState
+//import androidx.compose.foundation.layout.BoxScopeInstance.matchParentSize
+//import androidx.compose.ui.draw.EmptyBuildDrawCacheParams.density
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.times
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.ui.PlayerView
+//import androidx.media3.ui.compose.PlayerSurface
+//import androidx.media3.ui.PlayerView
+//import androidx.media3.ui.PlayerView
+//import androidx.media3.ui.PlayerView
+// Potrebni importi za ovo rešenje
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import androidx.media3.common.Player
+
 
 // U EPGScreen.kt, na vrhu
 private val PlayingProgramCardColor = Color(0xFFA269FF)
@@ -555,6 +566,7 @@ fun ProgramCard(
 
     Card(
         modifier = Modifier
+            .clickable { onClick() }
             .width(programWidth)
             .height(height - 4.dp)
             .onFocusChanged { focusState ->
@@ -835,8 +847,14 @@ fun EpgContent(
     programsByChannelId: Map<String,List<AppProgram>>,
     epgWindowStartEpochSeconds: Long
 ) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
 
-    // Slušamo stanje o programu koji se pušta (ovo već imaš)
+    val playerBoxHeight = 280.dp
+    val playerBoxWidth = remember(playerBoxHeight) { (playerBoxHeight.value * 16 / 9).dp }
+    val playerBoxWidthPx = with(density) { playerBoxWidth.toPx().toInt() }
+    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() }
+
     val playingProgram by viewModel.playingProgram.collectAsState()
 
 
@@ -849,17 +867,28 @@ fun EpgContent(
     }
 
     val formattedCurrentTime = remember(currentTimeInEpochSeconds) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentTimeInEpochSeconds * 1000L))
+        SimpleDateFormat(
+            "HH:mm",
+            Locale.getDefault()
+        ).format(Date(currentTimeInEpochSeconds * 1000L))
     }
 
 
-
     var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
-    val initialLastFocusedId = remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
-    val targetChannelGlobalIndex = remember(channels, initialLastFocusedId) { if (initialLastFocusedId != null) channels.indexOfFirst { it.channelId == initialLastFocusedId }.takeIf { it != -1 } ?: 0 else 0 }
+    //val context = LocalContext.current
+    val initialLastFocusedId =
+        remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
+    val targetChannelGlobalIndex = remember(
+        channels,
+        initialLastFocusedId
+    ) {
+        if (initialLastFocusedId != null) channels.indexOfFirst { it.channelId == initialLastFocusedId }
+            .takeIf { it != -1 } ?: 0 else 0
+    }
     val itemsAboveFocused = 2
-    val indexForListTop = remember(targetChannelGlobalIndex) { (targetChannelGlobalIndex - itemsAboveFocused).coerceAtLeast(0) }
+    val indexForListTop = remember(targetChannelGlobalIndex) {
+        (targetChannelGlobalIndex - itemsAboveFocused).coerceAtLeast(0)
+    }
     val listState = rememberTvLazyListState(initialFirstVisibleItemIndex = indexForListTop)
     val focusRequesters = remember(channels) { channels.associateWith { FocusRequester() } }
     var initialFocusRequestedForId by remember { mutableStateOf<String?>(null) }
@@ -894,8 +923,117 @@ fun EpgContent(
         val imageBoxHeight = 280.dp
         val imageBoxWidth = remember(imageBoxHeight) { (imageBoxHeight.value * 16 / 9).dp }
 
+        if (playingProgram != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .width(imageBoxWidth)
+                    .height(imageBoxHeight)
+            ) {
+                VideoPlayer(
+                    videoUrl = playingProgram!!.playbackURL,
+                    thumbnailUrl = imageUrlForTopRight,
+                    modifier = Modifier.matchParentSize()
+                )
+            }
 
-        imageUrlForTopRight?.let { imageUrl ->
+
+        } else {
+            imageUrlForTopRight?.let { imageUrl ->
+
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .width(imageBoxWidth)
+                        .height(imageBoxHeight)
+                ) {
+
+                    AsyncImage(model = imageUrl, contentDescription = "Pozadinska slika", modifier = Modifier
+                        .matchParentSize()
+                        .alpha(imageOverallAlpha), contentScale = ContentScale.Fit)
+                    Box(Modifier.align(Alignment.CenterStart)
+                        .width(imageFadeEdgeLength)
+                        .fillMaxHeight()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                listOf(
+                                    imageFadeToColor,
+                                    Color.Transparent
+                                )
+                            )
+                        ))
+                    Box(Modifier.align(Alignment.BottomCenter)
+                        .height(imageFadeEdgeLength)
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    imageFadeToColor
+                                )
+                            )
+                        ))
+                }
+            }
+        }
+        /*Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .width(imageBoxWidth)
+                .height(imageBoxHeight)
+        ) {
+            // NOVO: Uslovna logika koja proverava da li se neki program pušta
+            if (playingProgram != null) {
+                // Ako program za puštanje POSTOJI, pozovi VideoPlayer
+                VideoPlayer(
+                    videoUrl = playingProgram!!.playbackURL, // Koristimo URL iz programa
+                    modifier = Modifier.matchParentSize()
+                )
+            } else {
+                // U suprotnom (ako je playingProgram null), koristi staru logiku za prikaz slike
+                imageUrlForTopRight?.let { imageUrl ->
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Pozadinska slika",
+                        modifier = Modifier
+                            .matchParentSize()
+                            .alpha(imageOverallAlpha),
+                        contentScale = ContentScale.Fit
+                    )
+                    Box(
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .width(imageFadeEdgeLength)
+                            .fillMaxHeight()
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    listOf(
+                                        imageFadeToColor,
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .height(imageFadeEdgeLength)
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    listOf(
+                                        Color.Transparent,
+                                        imageFadeToColor
+                                    )
+                                )
+                            )
+                    )
+                }
+            }
+        }*/
+        //TESTIRANJE STARI NACIN
+        /*imageUrlForTopRight?.let { imageUrl ->
 
 
             Box(
@@ -931,7 +1069,7 @@ fun EpgContent(
                                 )
                             ))
                     }
-                }
+                }*/
             }
 
         Column(modifier = Modifier.fillMaxSize()) {
@@ -957,8 +1095,12 @@ fun EpgContent(
                 transitionSpec = {
                     if (targetState != null && initialState == null) {
                         //  TopHeader -> ProgramDetailsView
-                        (slideInVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeIn(animationSpec = tween(1000)))
-                            .togetherWith(slideOutVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeOut(animationSpec = tween(1000)))
+                        (slideInVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeIn(
+                            animationSpec = tween(1000)
+                        ))
+                            .togetherWith(slideOutVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeOut(
+                                animationSpec = tween(1000)
+                            ))
                     } else if (targetState == null && initialState != null) {
                         //ProgramDetailsView -> TopHeader
                         fadeIn(animationSpec = tween(1000))
@@ -998,9 +1140,17 @@ fun EpgContent(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
-                itemsIndexed(channels, key = { _, channel -> channel.channelId }) { index, channel ->
+                itemsIndexed(
+                    channels,
+                    key = { _, channel -> channel.channelId }) { index, channel ->
                     val requester = focusRequesters[channel] ?: remember { FocusRequester() }
-                    LaunchedEffect(initialLastFocusedId, channel.channelId, requester, listState.isScrollInProgress, initialFocusRequestedForId) {
+                    LaunchedEffect(
+                        initialLastFocusedId,
+                        channel.channelId,
+                        requester,
+                        listState.isScrollInProgress,
+                        initialFocusRequestedForId
+                    ) {
                         if (channel.channelId == initialLastFocusedId && initialLastFocusedId != null && initialFocusRequestedForId != initialLastFocusedId && !listState.isScrollInProgress && index == targetChannelGlobalIndex) {
                             requester.requestFocus()
                             initialFocusRequestedForId = initialLastFocusedId
@@ -1010,7 +1160,8 @@ fun EpgContent(
                     EpgChannelRow(
                         viewModel = viewModel,
                         channel = channel,
-                        programsForThisChannel = programsByChannelId[channel.channelId] ?: emptyList(),
+                        programsForThisChannel = programsByChannelId[channel.channelId]
+                            ?: emptyList(),
                         dpPerMinute = DP_PER_MINUTE,
                         rowHeight = EPG_PROGRAM_ROW_HEIGHT,
                         focusRequesterForChannel = requester,
@@ -1021,7 +1172,7 @@ fun EpgContent(
                                 context.saveLastFocusedChannelId(focusedChannelId)
                                 focusedProgram = null
                             } //else {
-                                //if (focusedChannelLogoUrl == logoUrl) focusedChannelLogoUrl = null
+                            //if (focusedChannelLogoUrl == logoUrl) focusedChannelLogoUrl = null
                             //}
                         },
                         globalTimelineStartEpochSeconds = epgWindowStartEpochSeconds,
@@ -1029,19 +1180,28 @@ fun EpgContent(
                         totalWidth = totalEpgWidth,
                         onProgramFocused = { program ->
                             focusedProgram = program
-                            val channelForProgram = channels.find { it.channelId == program?.channelId }
+                            val channelForProgram =
+                                channels.find { it.channelId == program?.channelId }
                             imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
                         },
                         // NOVO: Prosleđujemo stanje o vremenu
                         currentTimeInEpochSeconds = currentTimeInEpochSeconds,
                         playingProgram = playingProgram,
-                        onProgramClicked = { program -> viewModel.onProgramClicked(program) }
+                        onProgramClicked = { program ->
+                            viewModel.onProgramClicked(
+                                program = program,
+                                playerWidth = playerBoxWidthPx,
+                                playerHeight = playerBoxHeightPx,
+                                context = context
+                            )
+                        }
                     )
+
                 }
             }
         }
-    // NOVO: Dodajemo TimeLineOverlay ovde
-    // Moramo ga postaviti unutar istog Box-a kao i Column, kako bi se iscrtao preko svega
+        // NOVO: Dodajemo TimeLineOverlay ovde
+        // Moramo ga postaviti unutar istog Box-a kao i Column, kako bi se iscrtao preko svega
         TimeLineOverlay(
             epgWindowStartEpochSeconds = epgWindowStartEpochSeconds,
             dpPerMinute = DP_PER_MINUTE,
@@ -1050,6 +1210,7 @@ fun EpgContent(
             isProgramDetailsVisible = (animatedProgramState != null)
         )
     }
+
 
 
 @Composable
@@ -1143,7 +1304,179 @@ fun TimeLineOverlay(
     }
 }
 
+/*@Composable
+fun VideoPlayer(
+    videoUrl: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
 
+    // Kreiramo i pamtimo ExoPlayer instancu. Ključ je videoUrl da bi se
+    // plejer ponovo kreirao ako se URL promeni.
+    val exoPlayer = remember(videoUrl) {
+        ExoPlayer.Builder(context).build().apply {
+            val mediaItem = MediaItem.fromUri(videoUrl)
+            setMediaItem(mediaItem)
+            prepare()
+            playWhenReady = true // Pusti video odmah
+        }
+    }
+
+    // DisposableEffect je ključan! On osigurava da se plejer uništi (release)
+    // kada se komponenta ukloni sa ekrana, čime se sprečava curenje memorije.
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
+    // Koristimo AndroidView da bismo prikazali ExoPlayer-ov PlayerView
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = false // Isključujemo kontrole da ne bi smetale u malom prozoru
+            }
+        }
+    )
+}*/
+
+/*@Composable
+fun VideoPlayer(
+    videoUrl: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    // 1. Kreiramo ExoPlayer instancu SAMO JEDNOM i pamtimo je.
+    //    Pošto `remember` nema ključ, ovo će se izvršiti samo kada
+    //    komponenta prvi put uđe na ekran.
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            // Unapred kažemo plejeru da uvek pušta čim je spreman.
+            playWhenReady = true
+        }
+    }
+
+    // 2. Koristimo LaunchedEffect koji reaguje na PROMENU `videoUrl`-a.
+    //    Ovaj blok koda će se izvršiti svaki put kada se `videoUrl` promeni.
+    LaunchedEffect(videoUrl) {
+        val mediaItem = MediaItem.fromUri(videoUrl)
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare() // Pripremi novi izvor.
+        // Puštanje će krenuti automatski jer je playWhenReady = true
+    }
+
+    // 3. Koristimo DisposableEffect da oslobodimo plejer tek kada
+    //    korisnik napusti EPG ekran (kada se komponenta uništi).
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
+    // 4. AndroidView je sada jednostavniji jer je `exoPlayer` instanca
+    //    uvek ista, samo se menja sadržaj koji pušta.
+    AndroidView(
+        modifier = modifier.focusable(false),
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = false
+                isFocusable = false
+            }
+        }
+    )
+    /*PlayerSurface(
+        player = exoPlayer,
+        modifier = Modifier
+            .fillMaxSize()
+            //.alpha(if (isPlayerReady) 1f else 0f)
+
+    )*/
+}*/
+
+
+
+
+
+
+
+@Composable
+fun VideoPlayer(
+    videoUrl: String,
+    thumbnailUrl: String?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var isPlayerReady by remember { mutableStateOf(false) }
+
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isPlayerReady = playbackState == Player.STATE_READY
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
+    }
+
+    LaunchedEffect(videoUrl) {
+        isPlayerReady = false
+        val mediaItem = MediaItem.fromUri(videoUrl)
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
+    }
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        // Vraćamo se na AndroidView, ali sada sa "golim" SurfaceView-om
+        AndroidView(
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(if (isPlayerReady) 1f else 0f),
+            factory = { ctx ->
+                SurfaceView(ctx).apply {
+                    holder.addCallback(object : SurfaceHolder.Callback {
+                        override fun surfaceCreated(holder: SurfaceHolder) {
+                            // Površina je kreirana, predajemo je plejeru
+                            exoPlayer.setVideoSurface(holder.surface)
+                        }
+
+                        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                            // Ništa ne radimo ovde
+                        }
+
+                        override fun surfaceDestroyed(holder: SurfaceHolder) {
+                            // Površina je uništena, oduzimamo je od plejera
+                            exoPlayer.clearVideoSurface()
+                        }
+                    })
+                }
+            }
+        )
+
+        // Logika za thumbnail i spinner ostaje ista
+        if (!isPlayerReady) {
+            AsyncImage(
+                model = thumbnailUrl,
+                contentDescription = "Loading thumbnail",
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Fit
+            )
+            CircularProgressIndicator(color = Color.White)
+        }
+    }
+}
 
 
 

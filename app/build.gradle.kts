@@ -121,9 +121,12 @@ dependencies {
     // androidx.media3 je najnovija verzija ExoPlayer-a
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
+    //implementation("androidx.media3:media3-ui-compose:1.3.1")
 
     //LOTTIE ANIMACIJE//
-    implementation(libs.lottie.compose) // Proveri najnoviju verziju (možda je sada 6.3.0 ili novija)
+    implementation(libs.lottie.compose)
+    //implementation(libs.androidx.media3.ui) // Proveri najnoviju verziju (možda je sada 6.3.0 ili novija)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

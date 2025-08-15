@@ -33,8 +33,10 @@ class EPGViewModel(
     private val _channelState = MutableStateFlow<Resource<List<AppChannel>>>(Resource.Loading)
     val channelState: StateFlow<Resource<List<AppChannel>>> = _channelState.asStateFlow()
 
-    private val _programState = MutableStateFlow<Resource<Map<String, List<AppProgram>>>>(Resource.Loading)
-    val programState: StateFlow<Resource<Map<String, List<AppProgram>>>> = _programState.asStateFlow()
+    private val _programState =
+        MutableStateFlow<Resource<Map<String, List<AppProgram>>>>(Resource.Loading)
+    val programState: StateFlow<Resource<Map<String, List<AppProgram>>>> =
+        _programState.asStateFlow()
 
     // NOVO: Stanje koje čuva program koji se trenutno pušta
     private val _playingProgram = MutableStateFlow<AppProgram?>(null)
@@ -44,9 +46,6 @@ class EPGViewModel(
     val epgWindowStartEpochSeconds: StateFlow<Long?> = _epgWindowStartEpochSeconds.asStateFlow()
 
     private val TAG = "EPGViewModel"
-
-
-
 
 
     init {
@@ -106,7 +105,10 @@ class EPGViewModel(
                     Log.d(TAG, "Channels fetched successfully: ${appChannelList.size} channels")
                     Log.d("CHANNEL_ID_FINDER", "--- ALL CHANNELS ---")
                     appChannelList.forEach { channel ->
-                        Log.d("CHANNEL_ID_FINDER", "Channel_name: ${channel.name}, ID: ${channel.channelId}")
+                        Log.d(
+                            "CHANNEL_ID_FINDER",
+                            "Channel_name: ${channel.name}, ID: ${channel.channelId}"
+                        )
                     }
                     Log.d("CHANNEL_ID_FINDER", "--- END OF LIST ---")
                     _channelState.value = Resource.Success(appChannelList)
@@ -137,7 +139,10 @@ class EPGViewModel(
     private fun loadProgramsForChannels(channels: List<AppChannel>) {
         viewModelScope.launch {
 
-            Log.d("DISPATCHER_CHECK", "viewModelScope.launch START on thread: ${Thread.currentThread().name}")
+            Log.d(
+                "DISPATCHER_CHECK",
+                "viewModelScope.launch START on thread: ${Thread.currentThread().name}"
+            )
 
             _programState.value = Resource.Loading
             _epgWindowStartEpochSeconds.value = null
@@ -158,13 +163,17 @@ class EPGViewModel(
             programsResult.fold(
                 onSuccess = { appProgramList ->
                     // NOVO //
-                    Log.d(TAG, "Programs fetched successfully. Original count: ${appProgramList.size}")
+                    Log.d(
+                        TAG,
+                        "Programs fetched successfully. Original count: ${appProgramList.size}"
+                    )
 
                     val finalProgramMap = withContext(Dispatchers.Default) {
                         Log.d(TAG, "Starting data processing on background thread...")
 
 
-                        val filteredByDurationList = appProgramList.filter { (it.durationSec ?: 0) >= 60 }
+                        val filteredByDurationList =
+                            appProgramList.filter { (it.durationSec ?: 0) >= 60 }
 
 
                         sanitizeAndGroupPrograms(filteredByDurationList)
@@ -213,7 +222,8 @@ class EPGViewModel(
             for (i in 1 until sortedPrograms.size) {
                 val currentProgram = sortedPrograms[i]
                 val lastAddedProgram = sanitizedChannelList.last()
-                val lastAddedProgramEndTime = lastAddedProgram.startTimeEpoch + (lastAddedProgram.durationSec ?: 0)
+                val lastAddedProgramEndTime =
+                    lastAddedProgram.startTimeEpoch + (lastAddedProgram.durationSec ?: 0)
 
 
                 if (currentProgram.startTimeEpoch < lastAddedProgramEndTime) {
@@ -236,7 +246,6 @@ class EPGViewModel(
         }
         return finalSanitizedMap
     }
-
 
 
     fun refreshAllData() {
@@ -263,17 +272,22 @@ class EPGViewModel(
     }
 
     // IZMENA: buildFinalUrl sada prima Context kao parametar
-    private suspend fun buildFinalUrl(templateUrl: String, context: Context, playerWidth: Int, playerHeight: Int): String {
+    private suspend fun buildFinalUrl(
+        templateUrl: String,
+        context: Context,
+        playerWidth: Int,
+        playerHeight: Int
+    ): String {
         var finalUrl = templateUrl
         val appBundleId = context.packageName
         //val auid = auidRepository.getAuidString() ?: ""
         val auid = epgRepository.getAuid() ?: ""
-        val deviceId = auid // Privremeno rešenje
+        val advertisingId = epgRepository.getAdvertisingId() ?: auid// Privremeno rešenje
 
         finalUrl = finalUrl.replace("{{APP_BUNDLE_ID}}", URLEncoder.encode(appBundleId, "UTF-8"))
         finalUrl = finalUrl.replace("{{AUID}}", auid)
-        finalUrl = finalUrl.replace("{{DID}}", deviceId)
-        finalUrl = finalUrl.replace("{{AAID}}", deviceId)
+        finalUrl = finalUrl.replace("{{DID}}", advertisingId)
+        finalUrl = finalUrl.replace("{{AAID}}", advertisingId)
         finalUrl = finalUrl.replace("{{DNT}}", "1")
         finalUrl = finalUrl.replace("{{US_PRIVACY}}", "1---")
         finalUrl = finalUrl.replace("{{GDPR}}", "0")
@@ -284,7 +298,35 @@ class EPGViewModel(
         return finalUrl
     }
 
+    // IZMENA: onProgramClicked sada prima samo context
+    fun onProgramClicked(
+        program: AppProgram,
+        playerWidth: Int,
+        playerHeight: Int,
+        context: Context
+    ) {
+        val currentTimeSec = System.currentTimeMillis() / 1000
+        val programEndTimeSec = program.startTimeEpoch + (program.durationSec ?: 0)
+        val isCurrentlyLive =
+            currentTimeSec >= program.startTimeEpoch && currentTimeSec < programEndTimeSec
 
+        if (isCurrentlyLive) {
+            viewModelScope.launch {
+                val allChannels = (_channelState.value as? Resource.Success)?.data
+                val parentChannel = allChannels?.find { it.channelId == program.channelId }
+                if (parentChannel != null) {
+                    val finalUrl =
+                        buildFinalUrl(parentChannel.playbackUrl, context, playerWidth, playerHeight)
+                    Log.d("FINAL_URL_TEST", finalUrl)
+                    val programForPlayback = program.copy(playbackURL = finalUrl)
+                    _playingProgram.value = programForPlayback
+                }
+            }
+        } else {
+            Log.d(TAG, "Program '${program.title}' is not live, cannot play.")
+            _playingProgram.value = null
+        }
+    }
 
 }
 

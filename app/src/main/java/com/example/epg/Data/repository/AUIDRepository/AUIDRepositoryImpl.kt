@@ -12,7 +12,7 @@ class AUIDRepositoryImpl(
     private val context: Context
 ) : AUIDRepository {
 
-    private suspend fun getAdvertisingId(): String? {
+    override suspend fun getAdvertisingId(): String? {
         return try {
             withContext(Dispatchers.IO) {
                 val adInfo = AdvertisingIdClient.getAdvertisingIdInfo(context)

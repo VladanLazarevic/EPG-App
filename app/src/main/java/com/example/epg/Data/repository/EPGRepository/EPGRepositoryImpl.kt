@@ -29,7 +29,10 @@ class EPGRepositoryImpl(
 
     private val TAG = "EPGRepositoryImpl"
 
-
+    // NOVO: Implementacija
+    override suspend fun getAdvertisingId(): String? {
+        return auidRepository.getAdvertisingId()
+    }
     // NOVO: Implementacija nove funkcije
     override suspend fun getAuid(): String? {
         return auidRepository.getAuidString()

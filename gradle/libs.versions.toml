@@ -18,6 +18,7 @@ constraintlayout = "2.1.4"
 compose-for-tv = "1.0.0-alpha10"
 playServicesAdsIdentifier = "18.2.0"
 media3CommonKtx = "1.6.1"
+media3Ui = "1.8.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -46,6 +47,7 @@ androidx-tv-foundation = { module = "androidx.tv:tv-foundation", version.ref = "
 androidx-tv-material = { module = "androidx.tv:tv-material", version.ref = "compose-for-tv"}
 play-services-ads-identifier = { group = "com.google.android.gms", name = "play-services-ads-identifier", version.ref = "playServicesAdsIdentifier" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
+androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3Ui" }
 
 
 [plugins]
