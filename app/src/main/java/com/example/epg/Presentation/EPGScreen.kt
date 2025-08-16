@@ -839,6 +839,193 @@ fun ChannelItem(
 
 
 
+///////////////////////// TEST/////////////////////////////
+/*@Composable
+fun EpgContent(
+    viewModel: EPGViewModel,
+    channels: List<AppChannel>,
+    programsByChannelId: Map<String, List<AppProgram>>,
+    epgWindowStartEpochSeconds: Long
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val playerBoxHeight = 280.dp
+    val playerBoxWidth = remember(playerBoxHeight) { (playerBoxHeight.value * 16 / 9).dp }
+    val playerBoxWidthPx = with(density) { playerBoxWidth.toPx().toInt() }
+    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() }
+    val playingProgramFromVM by viewModel.playingProgram.collectAsState()
+    // Lokalna kopija stanja koju ćemo koristiti u ostatku koda
+    var localPlayingProgram by remember { mutableStateOf<AppProgram?>(null) }
+
+// Efekat koji sinhronizuje stanje iz ViewModel-a sa našom lokalnom kopijom
+    LaunchedEffect(playingProgramFromVM) {
+        localPlayingProgram = playingProgramFromVM
+    }
+    var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
+    val formattedCurrentTime = remember(currentTimeInEpochSeconds) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentTimeInEpochSeconds * 1000L))
+    }
+    var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
+    val initialLastFocusedId = remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
+    val targetChannelGlobalIndex = remember(channels, initialLastFocusedId) {
+        if (initialLastFocusedId != null) channels.indexOfFirst { it.channelId == initialLastFocusedId }.takeIf { it != -1 } ?: 0 else 0
+    }
+    val itemsAboveFocused = 2
+    val indexForListTop = remember(targetChannelGlobalIndex) { (targetChannelGlobalIndex - itemsAboveFocused).coerceAtLeast(0) }
+    val listState = rememberTvLazyListState(initialFirstVisibleItemIndex = indexForListTop)
+    val focusRequesters = remember(channels) { channels.associateWith { FocusRequester() } }
+    var initialFocusRequestedForId by remember { mutableStateOf<String?>(null) }
+    val sharedHorizontalScrollState = rememberScrollState()
+    val totalEpgWidth = remember(DP_PER_MINUTE) { (24 * 60 * DP_PER_MINUTE.value).dp }
+    var focusedProgram by remember { mutableStateOf<AppProgram?>(null) }
+    var animatedProgramState by remember { mutableStateOf<AppProgram?>(null) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeInEpochSeconds = System.currentTimeMillis() / 1000
+            delay(1000L)
+        }
+    }
+
+    LaunchedEffect(focusedProgram) {
+        delay(100L)
+        animatedProgramState = focusedProgram
+    }
+
+    BackHandler(enabled = focusedProgram != null) {
+        val targetRequester = channels.find { it.channelId == focusedProgram?.channelId }?.let { focusRequesters[it] }
+        targetRequester?.requestFocus()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) { // GLAVNI KONTEJNER
+        // SLOJ 1 (DONJI): EPG Tabela
+        Column(modifier = Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = animatedProgramState,
+                transitionSpec = {
+                    if (targetState != null && initialState == null) {
+                        (slideInVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeIn(animationSpec = tween(1000)))
+                            .togetherWith(slideOutVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeOut(animationSpec = tween(1000)))
+                    } else if (targetState == null && initialState != null) {
+                        fadeIn(animationSpec = tween(1000)).togetherWith(fadeOut(animationSpec = tween(1000)))
+                    } else {
+                        fadeIn(animationSpec = tween(1)).togetherWith(fadeOut(animationSpec = tween(1)))
+                    }.using(SizeTransform(clip = false))
+                },
+                label = "HeaderDetailsTransition"
+            ) { state ->
+                if (state != null) {
+                    ProgramDetailsView(targetProgram = state)
+                } else {
+                    TopHeader(currentTime = formattedCurrentTime)
+                }
+            }
+
+            TimelineHeader(
+                globalTimelineStartEpochSeconds = epgWindowStartEpochSeconds,
+                dpPerMinute = DP_PER_MINUTE,
+                timelineHeight = 25.dp,
+                horizontalScrollState = sharedHorizontalScrollState,
+                totalWidth = totalEpgWidth
+            )
+
+            TvLazyColumn(
+                modifier = Modifier.fillMaxSize().padding(start = EPG_SIDE_PADDING),
+                state = listState,
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                itemsIndexed(channels, key = { _, channel -> channel.channelId }) { index, channel ->
+                    val requester = focusRequesters[channel] ?: remember { FocusRequester() }
+                    LaunchedEffect(initialLastFocusedId, channel.channelId, requester, listState.isScrollInProgress, initialFocusRequestedForId) {
+                        if (channel.channelId == initialLastFocusedId && initialLastFocusedId != null && initialFocusRequestedForId != initialLastFocusedId && !listState.isScrollInProgress && index == targetChannelGlobalIndex) {
+                            requester.requestFocus()
+                            initialFocusRequestedForId = initialLastFocusedId
+                        }
+                    }
+
+                    EpgChannelRow(
+                        viewModel = viewModel,
+                        channel = channel,
+                        programsForThisChannel = programsByChannelId[channel.channelId] ?: emptyList(),
+                        dpPerMinute = DP_PER_MINUTE,
+                        rowHeight = EPG_PROGRAM_ROW_HEIGHT,
+                        focusRequesterForChannel = requester,
+                        onChannelFocusAndIdChanged = { isFocused, focusedChannelId, logoUrl ->
+                            if (isFocused) {
+                                imageUrlForTopRight = logoUrl
+                                context.saveLastFocusedChannelId(focusedChannelId)
+                                focusedProgram = null
+                            }
+                        },
+                        globalTimelineStartEpochSeconds = epgWindowStartEpochSeconds,
+                        horizontalScrollState = sharedHorizontalScrollState,
+                        totalWidth = totalEpgWidth,
+                        onProgramFocused = { program ->
+                            focusedProgram = program
+                            val channelForProgram = channels.find { it.channelId == program?.channelId }
+                            imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
+                        },
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
+                        playingProgram = localPlayingProgram,
+                        onProgramClicked = { program ->
+                            viewModel.onProgramClicked(
+                                program = program,
+                                playerWidth = playerBoxWidthPx,
+                                playerHeight = playerBoxHeightPx,
+                                context = context
+                            )
+                        }
+                    )
+                }
+            }
+        }
+
+        // SLOJ 2 (GORNJI): Plejer ili Logo
+        val imageOverallAlpha = 0.42f
+        val imageFadeEdgeLength = 50.dp
+        val imageFadeToColor = BackgroundColor
+
+        if (localPlayingProgram != null) {
+            Box(
+                modifier = Modifier.align(Alignment.TopEnd).width(playerBoxWidth).height(playerBoxHeight)
+            ) {
+                VideoPlayer(
+                    videoUrl = localPlayingProgram!!.playbackURL,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        } else {
+            imageUrlForTopRight?.let { imageUrl ->
+                Box(
+                    modifier = Modifier.align(Alignment.TopEnd).width(playerBoxWidth).height(playerBoxHeight)
+                ) {
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Pozadinska slika",
+                        modifier = Modifier.matchParentSize().alpha(imageOverallAlpha),
+                        contentScale = ContentScale.Fit
+                    )
+                    Box(Modifier.align(Alignment.CenterStart).width(imageFadeEdgeLength).fillMaxHeight()
+                        .background(brush = Brush.horizontalGradient(listOf(imageFadeToColor, Color.Transparent)))
+                    )
+                    Box(Modifier.align(Alignment.BottomCenter).height(imageFadeEdgeLength).fillMaxWidth()
+                        .background(brush = Brush.verticalGradient(listOf(Color.Transparent, imageFadeToColor)))
+                    )
+                }
+            }
+        }
+
+        // SLOJ 3 (NAJVIŠI): Vremenska linija
+        TimeLineOverlay(
+            epgWindowStartEpochSeconds = epgWindowStartEpochSeconds,
+            dpPerMinute = DP_PER_MINUTE,
+            horizontalScrollState = sharedHorizontalScrollState,
+            channels = channels,
+            isProgramDetailsVisible = (animatedProgramState != null)
+        )
+    }
+}*/
+///////////////////////// TEST/////////////////////////////
 
 @Composable
 fun EpgContent(
@@ -932,7 +1119,6 @@ fun EpgContent(
             ) {
                 VideoPlayer(
                     videoUrl = playingProgram!!.playbackURL,
-                    thumbnailUrl = imageUrlForTopRight,
                     modifier = Modifier.matchParentSize()
                 )
             }
@@ -1179,10 +1365,10 @@ fun EpgContent(
                         horizontalScrollState = sharedHorizontalScrollState,
                         totalWidth = totalEpgWidth,
                         onProgramFocused = { program ->
-                            focusedProgram = program
+                            /*focusedProgram = program
                             val channelForProgram =
                                 channels.find { it.channelId == program?.channelId }
-                            imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
+                            imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo*/
                         },
                         // NOVO: Prosleđujemo stanje o vremenu
                         currentTimeInEpochSeconds = currentTimeInEpochSeconds,
@@ -1342,7 +1528,7 @@ fun VideoPlayer(
     )
 }*/
 
-/*@Composable
+@Composable
 fun VideoPlayer(
     videoUrl: String,
     modifier: Modifier = Modifier
@@ -1395,7 +1581,7 @@ fun VideoPlayer(
             //.alpha(if (isPlayerReady) 1f else 0f)
 
     )*/
-}*/
+}
 
 
 
@@ -1403,7 +1589,7 @@ fun VideoPlayer(
 
 
 
-@Composable
+/*@Composable
 fun VideoPlayer(
     videoUrl: String,
     thumbnailUrl: String?,
@@ -1476,7 +1662,7 @@ fun VideoPlayer(
             CircularProgressIndicator(color = Color.White)
         }
     }
-}
+}*/
 
 
 
