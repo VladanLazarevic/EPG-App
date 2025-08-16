@@ -1,5 +1,7 @@
 package com.example.epg.Presentation
 
+import android.app.Activity
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 //import androidx.compose.animation.AnimatedVisibility
@@ -89,6 +91,11 @@ import androidx.media3.ui.PlayerView
 // Potrebni importi za ovo rešenje
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.WindowManager
+import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.Player
 
 
@@ -331,6 +338,21 @@ fun EpgChannelRow(
                 val epgWindowEndEpochSeconds = globalTimelineStartEpochSeconds + (24 * 60 * 60)
 
                 for (program in programsForThisChannel) {
+                    /*Button(
+                        onClick = { },
+                        modifier = Modifier.onFocusChanged { focusState ->
+                            if (focusState.isFocused) {
+                                Log.d("FocusTest", "DUGME 1 JE DOBILO PUNI FOKUS!")
+                            } else {
+                                Log.d("FocusTest", "DUGME 1 JE IZGUBILO FOKUS!")
+                            }
+                        }
+
+                        ) { Text("Test Dugme 1") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { }) { Text("Test Dugme 2") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { }) { Text("Test Dugme 3") }*/
                     val programStartTimeSeconds = program.startTimeEpoch
                     val programDuration = program.durationSec ?: 0
                     val programEndTimeSeconds = programStartTimeSeconds + programDuration
@@ -570,6 +592,10 @@ fun ProgramCard(
             .width(programWidth)
             .height(height - 4.dp)
             .onFocusChanged { focusState ->
+                // --- DODAJEMO LOG ISPIS OVDE ---
+                Log.d("FocusTest", "ProgramCard '${program.title}' Focus State: ${focusState.isFocused}")
+                // --- KRAJ DODATKA ---
+
                 isFocused = focusState.isFocused
                 onFocusChanged(isFocused)
             }
@@ -1119,6 +1145,7 @@ fun EpgContent(
             ) {
                 VideoPlayer(
                     videoUrl = playingProgram!!.playbackURL,
+                    thumbnailUrl = imageUrlForTopRight,
                     modifier = Modifier.matchParentSize()
                 )
             }
@@ -1528,60 +1555,7 @@ fun VideoPlayer(
     )
 }*/
 
-@Composable
-fun VideoPlayer(
-    videoUrl: String,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
 
-    // 1. Kreiramo ExoPlayer instancu SAMO JEDNOM i pamtimo je.
-    //    Pošto `remember` nema ključ, ovo će se izvršiti samo kada
-    //    komponenta prvi put uđe na ekran.
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            // Unapred kažemo plejeru da uvek pušta čim je spreman.
-            playWhenReady = true
-        }
-    }
-
-    // 2. Koristimo LaunchedEffect koji reaguje na PROMENU `videoUrl`-a.
-    //    Ovaj blok koda će se izvršiti svaki put kada se `videoUrl` promeni.
-    LaunchedEffect(videoUrl) {
-        val mediaItem = MediaItem.fromUri(videoUrl)
-        exoPlayer.setMediaItem(mediaItem)
-        exoPlayer.prepare() // Pripremi novi izvor.
-        // Puštanje će krenuti automatski jer je playWhenReady = true
-    }
-
-    // 3. Koristimo DisposableEffect da oslobodimo plejer tek kada
-    //    korisnik napusti EPG ekran (kada se komponenta uništi).
-    DisposableEffect(Unit) {
-        onDispose {
-            exoPlayer.release()
-        }
-    }
-
-    // 4. AndroidView je sada jednostavniji jer je `exoPlayer` instanca
-    //    uvek ista, samo se menja sadržaj koji pušta.
-    AndroidView(
-        modifier = modifier.focusable(false),
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                player = exoPlayer
-                useController = false
-                isFocusable = false
-            }
-        }
-    )
-    /*PlayerSurface(
-        player = exoPlayer,
-        modifier = Modifier
-            .fillMaxSize()
-            //.alpha(if (isPlayerReady) 1f else 0f)
-
-    )*/
-}
 
 
 
@@ -1664,6 +1638,168 @@ fun VideoPlayer(
     }
 }*/
 
+// NAJNOVIJE //
+/*@Composable
+fun VideoPlayer(
+    videoUrl: String,
+    thumbnailUrl: String?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+        }
+    }
+
+    // --- SREĐENA I OBJEDINJENA LOGIKA ZA ŽIVOTNI CIKLUS ---
+    DisposableEffect(exoPlayer) {
+        // Kreiramo observer za PAUSE/RESUME događaje
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
+                Lifecycle.Event.ON_RESUME -> exoPlayer.play()
+                else -> {}
+            }
+        }
+        // Dodajemo observer na životni ciklus
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        // onDispose blok se sada brine o SVEMU na kraju
+        onDispose {
+            // Uklanjamo observer
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            // I oslobađamo plejer
+            exoPlayer.release()
+        }
+    }
+    // --- KRAJ SREĐENE LOGIKE ---
+
+
+    // Efekat za držanje ekrana budnim ostaje isti
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        val window = (view.context as? Activity)?.window
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    // Efekat za promenu video URL-a ostaje isti
+    LaunchedEffect(videoUrl) {
+        val mediaItem = MediaItem.fromUri(videoUrl)
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
+    }
+
+    // AndroidView ostaje isti
+    AndroidView(
+        modifier = modifier.focusable(false),
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = false
+                isFocusable = false
+            }
+        },
+        // --- KLJUČNA ISPRAVKA JE OVDE ---
+        update = { view ->
+            // Svaki put kad se UI osveži (npr. povratak u app),
+            // ponovo dodeli plejer. Ovo natera PlayerView
+            // da ponovo uspostavi vezu sa (potencijalno novom) grafičkom površinom.
+            view.player = exoPlayer
+        }
+    )
+}*/
+
+
+
+
+@Composable
+fun VideoPlayer(
+    videoUrl: String,
+    thumbnailUrl: String?, // Parametar za sličicu
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    // Stanje koje prati da li je plejer spreman za prikaz
+    var isPlayerReady by remember { mutableStateOf(false) }
+
+    // Kreiramo ExoPlayer instancu i pamtimo je.
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+        }
+    }
+
+    // Efekat koji upravlja životnim ciklusom plejera i listener-om
+    DisposableEffect(exoPlayer) {
+        // Kreiramo listener koji prati stanje plejera
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                // Kada je plejer spreman (završio baferovanje), ažuriramo stanje
+                isPlayerReady = playbackState == Player.STATE_READY
+            }
+        }
+        // Dodajemo listener
+        exoPlayer.addListener(listener)
+
+        // onDispose se poziva kada se komponenta uništi
+        onDispose {
+            exoPlayer.removeListener(listener) // Uklanjamo listener
+            exoPlayer.release() // Oslobađamo plejer
+        }
+    }
+
+    // Efekat koji reaguje na promenu video linka
+    LaunchedEffect(videoUrl) {
+        isPlayerReady = false // Resetujemo stanje svaki put kad se promeni video
+        val mediaItem = MediaItem.fromUri(videoUrl)
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
+    }
+
+    // Koristimo Box za slaganje elemenata (plejer ili sličica/spinner)
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        // AndroidView (plejer) je jedan od elemenata u Box-u
+        AndroidView(
+            // .alpha() čini plejer nevidljivim dok nije spreman
+            modifier = Modifier
+                .fillMaxSize()
+                .focusable(false)
+                .alpha(if (isPlayerReady) 1f else 0f),
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = false
+                    isFocusable = false
+                }
+            },
+            // Update blok je važan da se video ne zamrzne pri povratku u aplikaciju
+            update = { view ->
+                view.player = exoPlayer
+            }
+        )
+
+        // Prikazujemo sličicu i spinner ako plejer NIJE spreman
+        if (!isPlayerReady) {
+            AsyncImage(
+                model = thumbnailUrl,
+                contentDescription = "Učitavanje...",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+            CircularProgressIndicator(color = PlayingProgramCardColor)
+        }
+    }
+}
 
 
 
