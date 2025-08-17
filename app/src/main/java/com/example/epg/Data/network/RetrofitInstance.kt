@@ -11,6 +11,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONObject
 import retrofit2.http.Query
+import java.util.concurrent.TimeUnit
 
 
 object RetrofitInstance {

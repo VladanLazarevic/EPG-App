@@ -19,15 +19,37 @@ import java.util.concurrent.TimeUnit
 import androidx.compose.runtime.State
 import com.example.epg.Data.local.FavoriteManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 import java.util.Calendar
 
 
+
+// NOVO: Enumeracija za filtere
+enum class FilterType {
+    ALL,
+    FAVORITES
+}
+
 class EPGViewModel(
     private val epgRepository: EPGRepository,
     private val favoriteManager: FavoriteManager
 ): ViewModel() {
+
+    // NOVO: Stanje filtera i vidljivosti menija
+    private val _currentFilter = MutableStateFlow(FilterType.ALL)
+    val currentFilter: StateFlow<FilterType> = _currentFilter.asStateFlow()
+
+
+    private val _isFilterMenuVisible = MutableStateFlow(false)
+    val isFilterMenuVisible: StateFlow<Boolean> = _isFilterMenuVisible.asStateFlow()
+
+    // NOVO: Stanje fokusa na kanalu
+    private val _isChannelItemFocused = MutableStateFlow(false)
+    val isChannelItemFocused: StateFlow<Boolean> = _isChannelItemFocused.asStateFlow()
+
+
 
 
     private val _channelState = MutableStateFlow<Resource<List<AppChannel>>>(Resource.Loading)
@@ -113,7 +135,8 @@ class EPGViewModel(
                     Log.d("CHANNEL_ID_FINDER", "--- END OF LIST ---")
                     _channelState.value = Resource.Success(appChannelList)
                     if (appChannelList.isNotEmpty()) {
-                        loadProgramsForChannels(appChannelList)
+                        //loadProgramsForChannels(appChannelList)
+                        loadProgramsForCurrentFilter(appChannelList)
                     } else {
                         _programState.value = Resource.Success(emptyMap())
                         Log.d(TAG, "Channel list is empty, no programs to fetch.")
@@ -133,6 +156,37 @@ class EPGViewModel(
                 }
             )
         }
+    }
+
+    //NOVO
+    // NOVO: Javna funkcija za promenu filtera
+    fun onFilterSelected(filter: FilterType) {
+        viewModelScope.launch {
+            _currentFilter.value = filter
+            (_channelState.value as? Resource.Success)?.data?.let { allChannels ->
+                loadProgramsForCurrentFilter(allChannels)
+            }
+        }
+    }
+
+    // NOVO: Funkcija koja filtrira kanale pre nego što se preuzmu programi
+    private fun loadProgramsForCurrentFilter(allChannels: List<AppChannel>) {
+        viewModelScope.launch {
+            val filteredChannels = when (_currentFilter.value) {
+                FilterType.ALL -> allChannels
+                FilterType.FAVORITES -> allChannels.filter { it.isFavorite }
+            }
+            loadProgramsForChannels(filteredChannels)
+        }
+    }
+
+    // NOVO: Funkcije za upravljanje stanjem UI-ja
+    fun toggleFilterMenu(isVisible: Boolean) {
+        _isFilterMenuVisible.update { isVisible }
+    }
+
+    fun onChannelItemFocusChanged(isFocused: Boolean) {
+        _isChannelItemFocused.update { isFocused }
     }
 
 

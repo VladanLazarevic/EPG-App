@@ -92,6 +92,8 @@ import androidx.media3.ui.PlayerView
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.WindowManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -109,7 +111,7 @@ private val SPACE_BETWEEN_CHANNEL_AND_PROGRAMS = 2.dp
 private val FIXED_CARD_SPACING_DP = 0.dp
 private val PROGRAM_DETAILS_HEIGHT = 200.dp
 private val TOP_HEADER_HEIGHT = 76.5.dp
-
+private val FILTER_MENU_WIDTH = 180.dp
 
 
 fun inProgressCardShape() = RoundedCornerShape(
@@ -256,7 +258,9 @@ fun EpgChannelRow(
     horizontalScrollState: ScrollState,
     totalWidth: Dp,
     onProgramFocused: (program: AppProgram?) -> Unit,
-    currentTimeInEpochSeconds: Long
+    currentTimeInEpochSeconds: Long,
+    // NOVO: EpgChannelRow sada prima onKeyEvent
+    onKeyEvent: (KeyEvent) -> Boolean
     //onProgramClicked: (AppProgram) -> Unit,
     //playingProgram: AppProgram?
 
@@ -287,8 +291,12 @@ fun EpgChannelRow(
             focusRequester = focusRequesterForChannel,
             onFocusChangedAndIdCallback = { isFocused, channelId ->
                 onChannelFocusAndIdChanged(isFocused, channelId, channel.logo)
+                // NOVO: Prosleđujemo fokus nazad u ViewModel
+                viewModel.onChannelItemFocusChanged(isFocused)
             },
-            onFavoriteClick = { viewModel.onToggleFavorite(channel.channelId) }
+            onFavoriteClick = { viewModel.onToggleFavorite(channel.channelId) },
+            // NOVO: Prosleđujemo onKeyEvent parametar
+            onKeyEvent = onKeyEvent
 
         )
 
@@ -799,7 +807,9 @@ fun ChannelItem(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester,
     onFocusChangedAndIdCallback: (isFocused: Boolean, channelId: String) -> Unit,
-    onFavoriteClick: () -> Unit
+    onFavoriteClick: () -> Unit,
+    // NOVO: Dodajemo onKeyEvent za rad sa filterima
+    onKeyEvent: (KeyEvent) -> Boolean,
 ) {
     var isFocusedState by remember { mutableStateOf(false) }
     val containerColor by animateColorAsState(if (isFocusedState) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) else Color.Transparent, tween(100), label = "ChannelItemContainerColorFocus")
@@ -813,6 +823,7 @@ fun ChannelItem(
                 onFocusChangedAndIdCallback(focusState.isFocused, channel.channelId)
             }
             .clickable { onFavoriteClick() }
+            .onKeyEvent(onKeyEvent)
             .focusable(true),
         shape = RoundedCornerShape(9.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
@@ -866,7 +877,7 @@ fun ChannelItem(
 
 
 ///////////////////////// TEST/////////////////////////////
-/*@Composable
+@Composable
 fun EpgContent(
     viewModel: EPGViewModel,
     channels: List<AppChannel>,
@@ -875,29 +886,30 @@ fun EpgContent(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val playerBoxHeight = 280.dp
-    val playerBoxWidth = remember(playerBoxHeight) { (playerBoxHeight.value * 16 / 9).dp }
-    val playerBoxWidthPx = with(density) { playerBoxWidth.toPx().toInt() }
-    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() }
-    val playingProgramFromVM by viewModel.playingProgram.collectAsState()
-    // Lokalna kopija stanja koju ćemo koristiti u ostatku koda
-    var localPlayingProgram by remember { mutableStateOf<AppProgram?>(null) }
-
-// Efekat koji sinhronizuje stanje iz ViewModel-a sa našom lokalnom kopijom
-    LaunchedEffect(playingProgramFromVM) {
-        localPlayingProgram = playingProgramFromVM
-    }
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeInEpochSeconds = System.currentTimeMillis() / 1000
+            delay(1000L)
+        }
+    }
     val formattedCurrentTime = remember(currentTimeInEpochSeconds) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentTimeInEpochSeconds * 1000L))
+        SimpleDateFormat(
+            "HH:mm",
+            Locale.getDefault()
+        ).format(Date(currentTimeInEpochSeconds * 1000L))
     }
     var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
-    val initialLastFocusedId = remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
+    val initialLastFocusedId =
+        remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
     val targetChannelGlobalIndex = remember(channels, initialLastFocusedId) {
-        if (initialLastFocusedId != null) channels.indexOfFirst { it.channelId == initialLastFocusedId }.takeIf { it != -1 } ?: 0 else 0
+        if (initialLastFocusedId != null) channels.indexOfFirst { it.channelId == initialLastFocusedId }
+            .takeIf { it != -1 } ?: 0 else 0
     }
     val itemsAboveFocused = 2
-    val indexForListTop = remember(targetChannelGlobalIndex) { (targetChannelGlobalIndex - itemsAboveFocused).coerceAtLeast(0) }
+    val indexForListTop = remember(targetChannelGlobalIndex) {
+        (targetChannelGlobalIndex - itemsAboveFocused).coerceAtLeast(0)
+    }
     val listState = rememberTvLazyListState(initialFirstVisibleItemIndex = indexForListTop)
     val focusRequesters = remember(channels) { channels.associateWith { FocusRequester() } }
     var initialFocusRequestedForId by remember { mutableStateOf<String?>(null) }
@@ -906,47 +918,206 @@ fun EpgContent(
     var focusedProgram by remember { mutableStateOf<AppProgram?>(null) }
     var animatedProgramState by remember { mutableStateOf<AppProgram?>(null) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            currentTimeInEpochSeconds = System.currentTimeMillis() / 1000
-            delay(1000L)
+
+    // NOVO: Stanje filtera i animacije iz ViewModel-a
+    val isFilterMenuVisible by viewModel.isFilterMenuVisible.collectAsState()
+    val isChannelItemFocused by viewModel.isChannelItemFocused.collectAsState()
+    val currentFilter by viewModel.currentFilter.collectAsState()
+    val filteredChannels by remember(channels, currentFilter) {
+        derivedStateOf {
+            when (currentFilter) {
+                FilterType.ALL -> channels
+                FilterType.FAVORITES -> channels.filter { it.isFavorite }
+            }
         }
     }
+    val epgContentOffsetX by animateDpAsState(
+        targetValue = if (isFilterMenuVisible) FILTER_MENU_WIDTH else 0.dp,
+        animationSpec = tween(300),
+        label = "epgContentOffset"
+    )
+
+    // NOVO: FocusRequester za filtere
+    val allFilterRequester = remember { FocusRequester() }
+    val favoritesFilterRequester = remember { FocusRequester() }
+    val filterRequesters = mapOf(
+        FilterType.ALL to allFilterRequester,
+        FilterType.FAVORITES to favoritesFilterRequester
+    )
 
     LaunchedEffect(focusedProgram) {
         delay(100L)
         animatedProgramState = focusedProgram
     }
 
-    BackHandler(enabled = focusedProgram != null) {
-        val targetRequester = channels.find { it.channelId == focusedProgram?.channelId }?.let { focusRequesters[it] }
-        targetRequester?.requestFocus()
+    BackHandler(enabled = focusedProgram != null || isFilterMenuVisible) {
+        if (isFilterMenuVisible) {
+            viewModel.toggleFilterMenu(false)
+            // NOVO: Vraćamo fokus na trenutni kanal nakon zatvaranja menija
+            val targetChannelId = channels.find { it.channelId == focusedProgram?.channelId }?.channelId ?: initialLastFocusedId
+            channels.find { it.channelId == targetChannelId }?.let { channel ->
+                focusRequesters[channel]?.requestFocus()
+            }
+        } else {
+            val targetRequester = channels
+                .find { it.channelId == focusedProgram?.channelId }
+                ?.let { focusRequesters[it] }
+            targetRequester?.requestFocus()
+        }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) { // GLAVNI KONTEJNER
-        // SLOJ 1 (DONJI): EPG Tabela
-        Column(modifier = Modifier.fillMaxSize()) {
-            AnimatedContent(
-                targetState = animatedProgramState,
-                transitionSpec = {
-                    if (targetState != null && initialState == null) {
-                        (slideInVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeIn(animationSpec = tween(1000)))
-                            .togetherWith(slideOutVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeOut(animationSpec = tween(1000)))
-                    } else if (targetState == null && initialState != null) {
-                        fadeIn(animationSpec = tween(1000)).togetherWith(fadeOut(animationSpec = tween(1000)))
-                    } else {
-                        fadeIn(animationSpec = tween(1)).togetherWith(fadeOut(animationSpec = tween(1)))
-                    }.using(SizeTransform(clip = false))
-                },
-                label = "HeaderDetailsTransition"
-            ) { state ->
-                if (state != null) {
-                    ProgramDetailsView(targetProgram = state)
-                } else {
-                    TopHeader(currentTime = formattedCurrentTime)
-                }
-            }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        val imageOverallAlpha = 0.42f
+        val imageFadeEdgeLength = 50.dp
+        val imageFadeToColor = BackgroundColor
+        val imageBoxHeight = 280.dp
+        val imageBoxWidth = remember(imageBoxHeight) { (imageBoxHeight.value * 16 / 9).dp }
+
+        imageUrlForTopRight?.let { imageUrl ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .width(imageBoxWidth)
+                    .height(imageBoxHeight)
+            ) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Pozadinska slika",
+                    modifier = Modifier
+                        .matchParentSize()
+                        .alpha(imageOverallAlpha),
+                    contentScale = ContentScale.Fit
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .width(imageFadeEdgeLength)
+                        .fillMaxHeight()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                listOf(
+                                    imageFadeToColor,
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .height(imageFadeEdgeLength)
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    imageFadeToColor
+                                )
+                            )
+                        )
+                )
+            }
+        }
+
+        // NOVO: Filter meni (prikazuje se samo kada je vidljivost true)
+        AnimatedVisibility(
+            visible = isFilterMenuVisible,
+            enter = fadeIn(tween(300)),
+            exit = fadeOut(tween(300)),
+            modifier = Modifier.align(Alignment.CenterStart)
+        ) {
+            FilterMenu(
+                currentFilter = currentFilter,
+                onFilterSelected = { filter ->
+                    viewModel.onFilterSelected(filter)
+                },
+                onFocused = {
+                    // Kada se fokus vrati na meni, sakrivamo simbol '<'
+                    viewModel.onChannelItemFocusChanged(false)
+                },
+                onKeyEvent = { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionRight) {
+                        viewModel.toggleFilterMenu(false)
+                        // Vraćamo fokus na trenutni kanal
+                        val targetChannelId = channels.find { it.channelId == focusedProgram?.channelId }?.channelId ?: initialLastFocusedId
+                        channels.find { it.channelId == targetChannelId }?.let { channel ->
+                            focusRequesters[channel]?.requestFocus()
+                        }
+                        true
+                    }
+                    false
+                },
+                allFilterRequester = allFilterRequester,
+                favoritesFilterRequester = favoritesFilterRequester
+            )
+        }
+
+
+
+
+        // NOVO: Simbol '<'
+        // Prikazuje se samo ako je kanal fokusiran I ako meni sa filterima nije otvoren
+        val isLeftArrowVisible = isChannelItemFocused && !isFilterMenuVisible
+        AnimatedVisibility(
+            visible = isLeftArrowVisible,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150)),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 22.dp)
+        ) {
+            /*Icon(
+                painter = painterResource(id = R.drawable.icon_left_arrow), // Pretpostavljam da imate ovu sliku
+                contentDescription = "Filteri",
+                tint = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.size(40.dp)
+            )*/
+            Text(
+                text = "<",
+                fontSize = 30.sp,
+                color = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.padding(start = 12.dp)
+            )
+        }
+
+        // ISPRAVLJENO: TopHeader je sada izvan animiranog Column-a
+        AnimatedContent(
+            targetState = animatedProgramState,
+            transitionSpec = {
+                if (targetState != null && initialState == null) {
+                    (slideInVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeIn(
+                        animationSpec = tween(1000)
+                    ))
+                        .togetherWith(slideOutVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeOut(
+                            animationSpec = tween(1000)
+                        ))
+                } else if (targetState == null && initialState != null) {
+                    fadeIn(animationSpec = tween(1000))
+                        .togetherWith(fadeOut(animationSpec = tween(1000)))
+                } else {
+                    fadeIn(animationSpec = tween(1))
+                        .togetherWith(fadeOut(animationSpec = tween(1)))
+                }.using(
+                    SizeTransform(clip = false)
+                )
+            },
+            label = "HeaderDetailsTransition"
+        ) { animatedProgramState ->
+            if (animatedProgramState != null) {
+                ProgramDetailsView(targetProgram = animatedProgramState)
+            } else {
+                TopHeader(currentTime = formattedCurrentTime)
+            }
+        }
+
+
+        // ISPRAVLJENO: Novi Column koji se animira i sadrži samo EPG listu
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(x = epgContentOffsetX)
+        ) {
             TimelineHeader(
                 globalTimelineStartEpochSeconds = epgWindowStartEpochSeconds,
                 dpPerMinute = DP_PER_MINUTE,
@@ -956,23 +1127,33 @@ fun EpgContent(
             )
 
             TvLazyColumn(
-                modifier = Modifier.fillMaxSize().padding(start = EPG_SIDE_PADDING),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = EPG_SIDE_PADDING),
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
-                itemsIndexed(channels, key = { _, channel -> channel.channelId }) { index, channel ->
+                itemsIndexed(
+                    filteredChannels,
+                    key = { _, channel -> channel.channelId }) { index, channel ->
                     val requester = focusRequesters[channel] ?: remember { FocusRequester() }
-                    LaunchedEffect(initialLastFocusedId, channel.channelId, requester, listState.isScrollInProgress, initialFocusRequestedForId) {
+                    LaunchedEffect(
+                        initialLastFocusedId,
+                        channel.channelId,
+                        requester,
+                        listState.isScrollInProgress,
+                        initialFocusRequestedForId
+                    ) {
                         if (channel.channelId == initialLastFocusedId && initialLastFocusedId != null && initialFocusRequestedForId != initialLastFocusedId && !listState.isScrollInProgress && index == targetChannelGlobalIndex) {
                             requester.requestFocus()
                             initialFocusRequestedForId = initialLastFocusedId
                         }
                     }
-
                     EpgChannelRow(
                         viewModel = viewModel,
                         channel = channel,
-                        programsForThisChannel = programsByChannelId[channel.channelId] ?: emptyList(),
+                        programsForThisChannel = programsByChannelId[channel.channelId]
+                            ?: emptyList(),
                         dpPerMinute = DP_PER_MINUTE,
                         rowHeight = EPG_PROGRAM_ROW_HEIGHT,
                         focusRequesterForChannel = requester,
@@ -988,60 +1169,23 @@ fun EpgContent(
                         totalWidth = totalEpgWidth,
                         onProgramFocused = { program ->
                             focusedProgram = program
-                            val channelForProgram = channels.find { it.channelId == program?.channelId }
+                            val channelForProgram =
+                                channels.find { it.channelId == program?.channelId }
                             imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
                         },
                         currentTimeInEpochSeconds = currentTimeInEpochSeconds,
-                        playingProgram = localPlayingProgram,
-                        onProgramClicked = { program ->
-                            viewModel.onProgramClicked(
-                                program = program,
-                                playerWidth = playerBoxWidthPx,
-                                playerHeight = playerBoxHeightPx,
-                                context = context
-                            )
+                        onKeyEvent = { event ->
+                            if (isChannelItemFocused && event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
+                                viewModel.toggleFilterMenu(true)
+                                allFilterRequester.requestFocus()
+                                true
+                            }
+                            false
                         }
                     )
                 }
             }
         }
-
-        // SLOJ 2 (GORNJI): Plejer ili Logo
-        val imageOverallAlpha = 0.42f
-        val imageFadeEdgeLength = 50.dp
-        val imageFadeToColor = BackgroundColor
-
-        if (localPlayingProgram != null) {
-            Box(
-                modifier = Modifier.align(Alignment.TopEnd).width(playerBoxWidth).height(playerBoxHeight)
-            ) {
-                VideoPlayer(
-                    videoUrl = localPlayingProgram!!.playbackURL,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        } else {
-            imageUrlForTopRight?.let { imageUrl ->
-                Box(
-                    modifier = Modifier.align(Alignment.TopEnd).width(playerBoxWidth).height(playerBoxHeight)
-                ) {
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = "Pozadinska slika",
-                        modifier = Modifier.matchParentSize().alpha(imageOverallAlpha),
-                        contentScale = ContentScale.Fit
-                    )
-                    Box(Modifier.align(Alignment.CenterStart).width(imageFadeEdgeLength).fillMaxHeight()
-                        .background(brush = Brush.horizontalGradient(listOf(imageFadeToColor, Color.Transparent)))
-                    )
-                    Box(Modifier.align(Alignment.BottomCenter).height(imageFadeEdgeLength).fillMaxWidth()
-                        .background(brush = Brush.verticalGradient(listOf(Color.Transparent, imageFadeToColor)))
-                    )
-                }
-            }
-        }
-
-        // SLOJ 3 (NAJVIŠI): Vremenska linija
         TimeLineOverlay(
             epgWindowStartEpochSeconds = epgWindowStartEpochSeconds,
             dpPerMinute = DP_PER_MINUTE,
@@ -1050,10 +1194,84 @@ fun EpgContent(
             isProgramDetailsVisible = (animatedProgramState != null)
         )
     }
-}*/
-///////////////////////// TEST/////////////////////////////
+}
+
+// NOVO: Komponenta za filter meni
+@Composable
+fun FilterMenu(
+    currentFilter: FilterType,
+    onFilterSelected: (FilterType) -> Unit,
+    onFocused: () -> Unit,
+    onKeyEvent: (KeyEvent) -> Boolean,
+    allFilterRequester: FocusRequester,
+    favoritesFilterRequester: FocusRequester
+) {
+    Box(
+        modifier = Modifier
+            .width(FILTER_MENU_WIDTH)
+            .fillMaxHeight()
+            .background(Color(0xFF2E2E2E))
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) {
+                    onFocused()
+                }
+            }
+            .onKeyEvent(onKeyEvent)
+            .padding(start = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .focusGroup(),
+            verticalArrangement = Arrangement.Center
+        ) {
+            FilterButton(
+                text = "All",
+                isSelected = currentFilter == FilterType.ALL,
+                onClick = { onFilterSelected(FilterType.ALL) },
+                modifier = Modifier.focusRequester(allFilterRequester)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            FilterButton(
+                text = "Favorites",
+                isSelected = currentFilter == FilterType.FAVORITES,
+                onClick = { onFilterSelected(FilterType.FAVORITES) },
+                modifier = Modifier.focusRequester(favoritesFilterRequester)
+            )
+        }
+    }
+}
+
 
 @Composable
+fun FilterButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) Color(0xFF5B5B5B) else Color.Transparent,
+        animationSpec = tween(200)
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected) Color.White else Color.LightGray,
+        animationSpec = tween(200)
+    )
+    val buttonModifier = modifier
+        .fillMaxWidth()
+        .height(55.dp)
+        .clip(RoundedCornerShape(27.5.dp))
+        .background(backgroundColor)
+        .clickable(onClick = onClick)
+        .focusable(true)
+        .padding(horizontal = 16.dp)
+
+    Box(
+        modifier = buttonModifier,
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(text = text, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+///////////////////////// TEST/////////////////////////////
+
+/*@Composable
 fun EpgContent(
     viewModel: EPGViewModel,
     channels: List<AppChannel>,
@@ -1112,13 +1330,39 @@ fun EpgContent(
 
     var animatedProgramState by remember { mutableStateOf<AppProgram?>(null) }
 
+    // NOVO: Stanje filtera i animacije iz ViewModel-a
+    val isFilterMenuVisible by viewModel.isFilterMenuVisible.collectAsState()
+    val isChannelItemFocused by viewModel.isChannelItemFocused.collectAsState()
+    val currentFilter by viewModel.currentFilter.collectAsState()
+    val filteredChannels by remember(channels, currentFilter) {
+        derivedStateOf {
+            when (currentFilter) {
+                FilterType.ALL -> channels
+                FilterType.FAVORITES -> channels.filter { it.isFavorite }
+            }
+        }
+    }
+    val epgContentOffsetX by animateDpAsState(
+        targetValue = if (isFilterMenuVisible) FILTER_MENU_WIDTH else 0.dp,
+        animationSpec = tween(300),
+        label = "epgContentOffset"
+    )
+
+    // NOVO: FocusRequester za filtere
+    val allFilterRequester = remember { FocusRequester() }
+    val favoritesFilterRequester = remember { FocusRequester() }
+    val filterRequesters = mapOf(
+        FilterType.ALL to allFilterRequester,
+        FilterType.FAVORITES to favoritesFilterRequester
+    )
+
     LaunchedEffect(focusedProgram) {
         delay(100L)
         animatedProgramState = focusedProgram
     }
 
 
-    BackHandler(enabled = focusedProgram != null) {
+    /*BackHandler(enabled = focusedProgram != null) {
 
         val targetRequester = channels
             .find { it.channelId == focusedProgram?.channelId }
@@ -1126,6 +1370,21 @@ fun EpgContent(
 
         targetRequester?.requestFocus()
 
+    }*/
+    BackHandler(enabled = focusedProgram != null || isFilterMenuVisible) {
+        if (isFilterMenuVisible) {
+            viewModel.toggleFilterMenu(false)
+            // NOVO: Vraćamo fokus na trenutni kanal nakon zatvaranja menija
+            val targetChannelId = (channels as? Resource.Success)?.data?.find { it.channelId == focusedProgram?.channelId }?.channelId ?: initialLastFocusedId
+            channels.find { it.channelId == targetChannelId }?.let { channel ->
+                focusRequesters[channel]?.requestFocus()
+            }
+        } else {
+            val targetRequester = channels
+                .find { it.channelId == focusedProgram?.channelId }
+                ?.let { focusRequesters[it] }
+            targetRequester?.requestFocus()
+        }
     }
 
 
@@ -1286,23 +1545,7 @@ fun EpgContent(
             }
 
         Column(modifier = Modifier.fillMaxSize()) {
-            /*Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(
-                        animationSpec = tween(
-                            durationMillis = 750,
-                            easing = LinearOutSlowInEasing
-                        )
-                    )
-            ) {
 
-                if (animatedProgramState != null) {
-                    ProgramDetailsView(targetProgram = animatedProgramState!!)
-                } else {
-                    TopHeader()
-                }
-            }*/
             AnimatedContent(
                 targetState = animatedProgramState,
                 transitionSpec = {
@@ -1398,7 +1641,17 @@ fun EpgContent(
                             imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
                         },
                         // NOVO: Prosleđujemo stanje o vremenu
-                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
+                        // NOVO: Prosleđujemo key event
+                        onKeyEvent = { event ->
+                            if (isChannelItemFocused && event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
+                                viewModel.toggleFilterMenu(true)
+                                // NOVO: Tražimo fokus za ALL filter čim se meni otvori
+                                allFilterRequester.requestFocus()
+                                return@onKeyEvent true
+                            }
+                            return@onKeyEvent false
+                        }
                         //playingProgram = playingProgram,
                         /*onProgramClicked = { program ->
                             viewModel.onProgramClicked(
@@ -1422,7 +1675,7 @@ fun EpgContent(
             channels = channels,
             isProgramDetailsVisible = (animatedProgramState != null)
         )
-    }
+    }*/
 
 
 
