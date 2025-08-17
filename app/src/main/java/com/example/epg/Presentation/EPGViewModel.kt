@@ -39,8 +39,8 @@ class EPGViewModel(
         _programState.asStateFlow()
 
     // NOVO: Stanje koje čuva program koji se trenutno pušta
-    private val _playingProgram = MutableStateFlow<AppProgram?>(null)
-    val playingProgram: StateFlow<AppProgram?> = _playingProgram.asStateFlow()
+    //private val _playingProgram = MutableStateFlow<AppProgram?>(null)
+    //val playingProgram: StateFlow<AppProgram?> = _playingProgram.asStateFlow()
 
     private val _epgWindowStartEpochSeconds = MutableStateFlow<Long?>(null)
     val epgWindowStartEpochSeconds: StateFlow<Long?> = _epgWindowStartEpochSeconds.asStateFlow()
@@ -272,7 +272,7 @@ class EPGViewModel(
     }
 
     // IZMENA: buildFinalUrl sada prima Context kao parametar
-    private suspend fun buildFinalUrl(
+    /*private suspend fun buildFinalUrl(
         templateUrl: String,
         context: Context,
         playerWidth: Int,
@@ -296,10 +296,10 @@ class EPGViewModel(
         finalUrl = finalUrl.replace("{{PLAYER_HEIGHT}}", playerHeight.toString())
         finalUrl = finalUrl.replace("{{PLATID}}", "android_tv")
         return finalUrl
-    }
+    }*/
 
     // IZMENA: onProgramClicked sada prima samo context
-    fun onProgramClicked(
+    /*fun onProgramClicked(
         program: AppProgram,
         playerWidth: Int,
         playerHeight: Int,
@@ -326,7 +326,7 @@ class EPGViewModel(
             Log.d(TAG, "Program '${program.title}' is not live, cannot play.")
             _playingProgram.value = null
         }
-    }
+    }*/
 
 }
 

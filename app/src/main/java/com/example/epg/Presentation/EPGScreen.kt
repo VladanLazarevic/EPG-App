@@ -256,9 +256,9 @@ fun EpgChannelRow(
     horizontalScrollState: ScrollState,
     totalWidth: Dp,
     onProgramFocused: (program: AppProgram?) -> Unit,
-    currentTimeInEpochSeconds: Long,
-    onProgramClicked: (AppProgram) -> Unit,
-    playingProgram: AppProgram?
+    currentTimeInEpochSeconds: Long
+    //onProgramClicked: (AppProgram) -> Unit,
+    //playingProgram: AppProgram?
 
 ) {
 
@@ -407,10 +407,9 @@ fun EpgChannelRow(
                                 onProgramFocused(program)
                             }
                         },
-                        // NOVO: Prosleđujemo vreme u ProgramCard
-                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
-                        playingProgram = playingProgram,
-                        onClick = { onProgramClicked(program) }
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
+                        //playingProgram = playingProgram,
+                        //onClick = { onProgramClicked(program) }
                     )
                     lastVisualElementEndTimeSeconds = programEndTimeSeconds
                 }
@@ -539,9 +538,9 @@ fun ProgramCard(
     durationSec: Long,
     shape: Shape,
     onFocusChanged: (isFocused: Boolean) -> Unit,
-    currentTimeInEpochSeconds: Long,
-    playingProgram: AppProgram?,
-    onClick: () -> Unit,
+    currentTimeInEpochSeconds: Long
+    //playingProgram: AppProgram?,
+    //onClick: () -> Unit,
 ) {
     val programDurationMinutes = durationSec / 60f
     val programWidth = (programDurationMinutes * dpPerMinute.value).dp
@@ -554,11 +553,11 @@ fun ProgramCard(
     }
 
     // NOVO: Proveravamo da li je BAŠ OVA kartica ona koja se pušta
-    val isPlaying = playingProgram?.programId == program.programId && playingProgram?.channelId == program.channelId
+    //val isPlaying = playingProgram?.programId == program.programId && playingProgram?.channelId == program.channelId
 
 
     val cardAlpha = 0.53f
-    val containerrColor by animateColorAsState(
+    /*val containerrColor by animateColorAsState(
         targetValue = when {
             isPlaying -> PlayingProgramCardColor.copy(alpha = 0.8f) // Ljubičasta ako se pušta
             isFocused -> FocusedProgramCardColor.copy(alpha = 1f)   // Bela/Siva ako je fokusirana
@@ -566,13 +565,13 @@ fun ProgramCard(
         },
         animationSpec = tween(200),
         label = "ProgramCardContainerColorFocus"
-    )
+    )*/
 
-    /*val containerrColor by animateColorAsState(
+    val containerrColor by animateColorAsState(
         targetValue = if (isFocused) FocusedProgramCardColor.copy(alpha = 1f) else UnfocusedProgramCardColor.copy(alpha = cardAlpha),
         animationSpec = tween(100),
         label = "ProgramCardContainerColorFocus"
-    )*/
+    )
 
     val spacingWidth = 4.5.dp
     // Icon + Space
@@ -580,15 +579,15 @@ fun ProgramCard(
 
     //slide right
     val textOffset by animateDpAsState(
-        //targetValue = if (isFocused && isCurrentlyLive) iconAreaWidth else 0.dp,
-        targetValue = if (isPlaying) iconAreaWidth else 0.dp,
+        targetValue = if (isFocused && isCurrentlyLive) iconAreaWidth else 0.dp,
+        ///targetValue = if (isPlaying) iconAreaWidth else 0.dp,
         animationSpec = tween(durationMillis = 200),
         label = "TextOffsetAnimation"
     )
 
     Card(
         modifier = Modifier
-            .clickable { onClick() }
+            //.clickable { onClick() }
             .width(programWidth)
             .height(height - 4.dp)
             .onFocusChanged { focusState ->
@@ -614,7 +613,8 @@ fun ProgramCard(
             contentAlignment = Alignment.CenterStart
         ) {
             androidx.compose.animation.AnimatedVisibility(
-                visible = isPlaying, //isFocused && isCurrentlyLive,
+                //visible = isPlaying, //isFocused && isCurrentlyLive,
+                visible = isFocused && isCurrentlyLive,
                 enter = fadeIn(animationSpec = tween(150)),
                 exit = fadeOut(animationSpec = tween(150))
             ) {
@@ -1063,12 +1063,12 @@ fun EpgContent(
     val context = LocalContext.current
     val density = LocalDensity.current
 
-    val playerBoxHeight = 280.dp
+    /*val playerBoxHeight = 280.dp
     val playerBoxWidth = remember(playerBoxHeight) { (playerBoxHeight.value * 16 / 9).dp }
     val playerBoxWidthPx = with(density) { playerBoxWidth.toPx().toInt() }
-    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() }
+    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() }*/
 
-    val playingProgram by viewModel.playingProgram.collectAsState()
+    //val playingProgram by viewModel.playingProgram.collectAsState()
 
 
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
@@ -1136,7 +1136,7 @@ fun EpgContent(
         val imageBoxHeight = 280.dp
         val imageBoxWidth = remember(imageBoxHeight) { (imageBoxHeight.value * 16 / 9).dp }
 
-        if (playingProgram != null) {
+        /*if (playingProgram != null) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -1148,10 +1148,10 @@ fun EpgContent(
                     thumbnailUrl = imageUrlForTopRight,
                     modifier = Modifier.matchParentSize()
                 )
-            }
+            }*/
 
 
-        } else {
+        //} else {
             imageUrlForTopRight?.let { imageUrl ->
 
 
@@ -1189,7 +1189,7 @@ fun EpgContent(
                         ))
                 }
             }
-        }
+        //}
         /*Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -1392,22 +1392,22 @@ fun EpgContent(
                         horizontalScrollState = sharedHorizontalScrollState,
                         totalWidth = totalEpgWidth,
                         onProgramFocused = { program ->
-                            /*focusedProgram = program
+                            focusedProgram = program
                             val channelForProgram =
                                 channels.find { it.channelId == program?.channelId }
-                            imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo*/
+                            imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
                         },
                         // NOVO: Prosleđujemo stanje o vremenu
-                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
-                        playingProgram = playingProgram,
-                        onProgramClicked = { program ->
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
+                        //playingProgram = playingProgram,
+                        /*onProgramClicked = { program ->
                             viewModel.onProgramClicked(
                                 program = program,
                                 playerWidth = playerBoxWidthPx,
                                 playerHeight = playerBoxHeightPx,
                                 context = context
                             )
-                        }
+                        }*/
                     )
 
                 }
