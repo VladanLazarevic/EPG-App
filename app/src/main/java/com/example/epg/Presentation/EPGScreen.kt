@@ -93,12 +93,16 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.Player
+
+
 
 
 // U EPGScreen.kt, na vrhu
@@ -292,7 +296,7 @@ fun EpgChannelRow(
             onFocusChangedAndIdCallback = { isFocused, channelId ->
                 onChannelFocusAndIdChanged(isFocused, channelId, channel.logo)
                 // NOVO: Prosleđujemo fokus nazad u ViewModel
-                viewModel.onChannelItemFocusChanged(isFocused)
+                //viewModel.onChannelItemFocusChanged(isFocused)
             },
             onFavoriteClick = { viewModel.onToggleFavorite(channel.channelId) },
             // NOVO: Prosleđujemo onKeyEvent parametar
@@ -884,6 +888,408 @@ fun EpgContent(
     programsByChannelId: Map<String, List<AppProgram>>,
     epgWindowStartEpochSeconds: Long
 ) {
+    //val focusRequesters = remember(channels) { channels.associateWith { FocusRequester() } }
+    // IZMENJENO: Mapiranje FocusRequestera po channelId (stabilan ključ)
+    val focusRequesters = remember(channels) {
+        channels.associateBy({ it.channelId }, { FocusRequester() })
+    }
+
+    val allFilterRequester = remember { FocusRequester() }
+    val favoritesFilterRequester = remember { FocusRequester() }
+    val channelListRequester = remember { FocusRequester() }
+    val isInitialFocusRequested = remember { mutableStateOf(false) }
+
+
+    val context = LocalContext.current
+    var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeInEpochSeconds = System.currentTimeMillis() / 1000
+            delay(1000L)
+        }
+    }
+    val formattedCurrentTime = remember(currentTimeInEpochSeconds) {
+        SimpleDateFormat(
+            "HH:mm",
+            Locale.getDefault()
+        ).format(Date(currentTimeInEpochSeconds * 1000L))
+    }
+    var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
+    val initialLastFocusedId =
+        remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
+    val targetChannelGlobalIndex = remember(channels, initialLastFocusedId) {
+        if (initialLastFocusedId != null) channels.indexOfFirst { it.channelId == initialLastFocusedId }
+            .takeIf { it != -1 } ?: 0 else 0
+    }
+    val itemsAboveFocused = 2
+    val indexForListTop = remember(targetChannelGlobalIndex) {
+        (targetChannelGlobalIndex - itemsAboveFocused).coerceAtLeast(0)
+    }
+    val listState = rememberTvLazyListState(initialFirstVisibleItemIndex = indexForListTop)
+    //val focusRequesters = remember(channels) { channels.associateWith { FocusRequester() } }
+    var initialFocusRequestedForId by remember { mutableStateOf<String?>(null) }
+    val sharedHorizontalScrollState = rememberScrollState()
+    val totalEpgWidth = remember(DP_PER_MINUTE) { (24 * 60 * DP_PER_MINUTE.value).dp }
+    var focusedProgram by remember { mutableStateOf<AppProgram?>(null) }
+    var animatedProgramState by remember { mutableStateOf<AppProgram?>(null) }
+
+
+    val isFilterMenuVisible by viewModel.isFilterMenuVisible.collectAsState()
+    val isChannelItemFocused by viewModel.isChannelItemFocused.collectAsState()
+    val currentFilter by viewModel.currentFilter.collectAsState()
+    val filteredChannels by remember(channels, currentFilter) {
+        derivedStateOf {
+            when (currentFilter) {
+                FilterType.ALL -> channels
+                FilterType.FAVORITES -> channels.filter { it.isFavorite }
+            }
+        }
+    }
+    val epgContentOffsetX by animateDpAsState(
+        targetValue = if (isFilterMenuVisible) FILTER_MENU_WIDTH else 0.dp,
+        animationSpec = tween(300),
+        label = "epgContentOffset"
+    )
+    //NOVO
+    LaunchedEffect(isFilterMenuVisible) {
+        if (isFilterMenuVisible) {
+            delay(100) // Kratko kašnjenje da se omogući recomposition
+            // Ako je trenutno odabrani filter ALL, fokusiramo taj taster
+            if (currentFilter == FilterType.ALL) {
+                allFilterRequester.requestFocus()
+                // Ako je odabrani filter FAVORITES, fokusiramo taj taster
+            } else if (currentFilter == FilterType.FAVORITES) {
+                favoritesFilterRequester.requestFocus()
+            }
+        }
+    }
+
+    //NOVO
+    /*
+    LaunchedEffect(isFilterMenuVisible) {
+        if (!isFilterMenuVisible) {
+            delay(100) // Daje vreme za animaciju zatvaranja
+            // Pronalaženje i fokusiranje poslednjeg kanala
+            val lastFocusedChannelId = context.getLastFocusedChannelId()
+            val targetChannel = channels.find { it.channelId == lastFocusedChannelId }
+            targetChannel?.let { channel ->
+                focusRequesters[channel]?.requestFocus()
+            }
+        }
+    }*/
+    LaunchedEffect(isFilterMenuVisible) {
+        if (!isFilterMenuVisible) {
+            delay(100)
+            // Ako je meni zatvoren, pokušaj da vratiš fokus
+            val lastFocusedChannelId = context.getLastFocusedChannelId()
+            val targetChannel = filteredChannels.find { it.channelId == lastFocusedChannelId }
+
+            val channelToFocus = targetChannel ?: filteredChannels.firstOrNull()
+
+            if (channelToFocus != null) {
+                val targetIndex = filteredChannels.indexOf(channelToFocus)
+                if (targetIndex != -1) {
+                    //listState.animateScrollToItem(targetIndex)
+                    //delay(50) // Kratko kašnjenje
+                    focusRequesters[channelToFocus.channelId]?.requestFocus()
+                }
+            }
+        }
+    }
+
+
+    val filterRequesters = mapOf(
+        FilterType.ALL to allFilterRequester,
+        FilterType.FAVORITES to favoritesFilterRequester
+    )
+
+    LaunchedEffect(focusedProgram) {
+        delay(100L)
+        animatedProgramState = focusedProgram
+    }
+
+    BackHandler(enabled = focusedProgram != null || isFilterMenuVisible) {
+        if (isFilterMenuVisible) {
+            viewModel.toggleFilterMenu(false)
+            //channelListRequester.requestFocus()
+        } else {
+            val targetRequester = channels
+                .find { it.channelId == focusedProgram?.channelId }
+                ?.let { focusRequesters[it.channelId] } // DODATO
+            targetRequester?.requestFocus()
+        }
+    }
+
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        val imageOverallAlpha = 0.42f
+        val imageFadeEdgeLength = 50.dp
+        val imageFadeToColor = BackgroundColor
+        val imageBoxHeight = 280.dp
+        val imageBoxWidth = remember(imageBoxHeight) { (imageBoxHeight.value * 16 / 9).dp }
+
+        imageUrlForTopRight?.let { imageUrl ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .width(imageBoxWidth)
+                    .height(imageBoxHeight)
+            ) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Pozadinska slika",
+                    modifier = Modifier
+                        .matchParentSize()
+                        .alpha(imageOverallAlpha),
+                    contentScale = ContentScale.Fit
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .width(imageFadeEdgeLength)
+                        .fillMaxHeight()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                listOf(
+                                    imageFadeToColor,
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .height(imageFadeEdgeLength)
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    imageFadeToColor
+                                )
+                            )
+                        )
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = isFilterMenuVisible,
+            enter = fadeIn(tween(300)),
+            exit = fadeOut(tween(300)),
+            modifier = Modifier.align(Alignment.CenterStart)
+        ) {
+            FilterMenu(
+                currentFilter = currentFilter,
+                onFilterSelected = { filter ->
+                    viewModel.onFilterSelected(filter)
+                },
+                onFocused = {
+                    viewModel.onChannelItemFocusChanged(false)
+                },
+                /*onKeyEvent = { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionRight) {
+                        viewModel.toggleFilterMenu(false)
+                        //channelListRequester.requestFocus()
+                        return@onKeyEvent true
+                    }
+                    return@onKeyEvent false
+                },*/
+                onKeyEvent = { event ->
+                    when (event.key) {
+                        Key.DirectionRight -> {
+                            if (event.type == KeyEventType.KeyDown) {
+                                viewModel.toggleFilterMenu(false)
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        else -> false
+                    }
+                },
+                allFilterRequester = allFilterRequester,
+                favoritesFilterRequester = favoritesFilterRequester
+            )
+        }
+        // NOVO: isInitialFocusRequested varijabla
+        //val isInitialFocusRequested = remember { mutableStateOf(false) }
+        val isLeftArrowVisible = isChannelItemFocused && !isFilterMenuVisible
+        // NOVO: Logika za vidljivost strelice '<'
+        /*val isLeftArrowVisible by remember(isChannelItemFocused, isFilterMenuVisible, isInitialFocusRequested.value) {
+            derivedStateOf {
+                // Prikazuje se ako je kanal fokusiran I ako meni nije vidljiv.
+                // Ažurira se i kada se početni fokus postavi.
+                isChannelItemFocused && !isFilterMenuVisible
+            }
+        }*/
+        //val isLeftArrowVisible = isChannelItemFocused && !isFilterMenuVisible && isInitialFocusRequested.value
+        AnimatedVisibility(
+            visible = isLeftArrowVisible,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150)),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 5.dp)
+        ) {
+            Text(
+                text = "<",
+                fontSize = 40.sp,
+                color = Color(0xFFA269FF).copy(alpha = 0.75f),
+                modifier = Modifier.padding(start = 2.dp)
+            )
+        }
+
+
+
+
+        ///TESTIRANJE//
+
+        // ISPRAVLJENO: Glavni kontejner za animirani sadržaj
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(x = epgContentOffsetX)
+        ) {
+            AnimatedContent(
+                targetState = animatedProgramState,
+                transitionSpec = {
+                    if (targetState != null && initialState == null) {
+                        (slideInVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeIn(
+                            animationSpec = tween(1000)
+                        ))
+                            .togetherWith(slideOutVertically(animationSpec = tween(1000)) { height -> -height / 2 } + fadeOut(
+                                animationSpec = tween(1000)
+                            ))
+                    } else if (targetState == null && initialState != null) {
+                        fadeIn(animationSpec = tween(1000))
+                            .togetherWith(fadeOut(animationSpec = tween(1000)))
+                    } else {
+                        fadeIn(animationSpec = tween(1))
+                            .togetherWith(fadeOut(animationSpec = tween(1)))
+                    }.using(
+                        SizeTransform(clip = false)
+                    )
+                },
+                label = "HeaderDetailsTransition"
+            ) { animatedProgramState ->
+                if (animatedProgramState != null) {
+                    ProgramDetailsView(targetProgram = animatedProgramState)
+                } else {
+                    TopHeader(currentTime = formattedCurrentTime)
+                }
+            }
+
+            TimelineHeader(
+                globalTimelineStartEpochSeconds = epgWindowStartEpochSeconds,
+                dpPerMinute = DP_PER_MINUTE,
+                timelineHeight = 25.dp,
+                horizontalScrollState = sharedHorizontalScrollState,
+                totalWidth = totalEpgWidth
+            )
+
+            TvLazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = EPG_SIDE_PADDING),
+                state = listState,
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                itemsIndexed(
+                    filteredChannels,
+                    key = { _, channel -> channel.channelId }) { index, channel ->
+       /*DODATO*/   val requester = focusRequesters[channel.channelId] ?: remember { FocusRequester() }
+                    LaunchedEffect(
+                        initialLastFocusedId,
+                        channel.channelId,
+                        requester,
+                        listState.isScrollInProgress,
+                        initialFocusRequestedForId
+                    ) {
+                        if (channel.channelId == initialLastFocusedId && initialLastFocusedId != null && initialFocusRequestedForId != initialLastFocusedId && !listState.isScrollInProgress && index == targetChannelGlobalIndex) {
+                            requester.requestFocus()
+                            initialFocusRequestedForId = initialLastFocusedId
+                            //isInitialFocusRequested.value = true
+                            // DODAJTE OVE DVE LINIJE
+                            delay(50)
+                            viewModel.onChannelItemFocusChanged(true)
+
+                        }
+                    }
+                    EpgChannelRow(
+                        viewModel = viewModel,
+                        channel = channel,
+                        programsForThisChannel = programsByChannelId[channel.channelId]
+                            ?: emptyList(),
+                        dpPerMinute = DP_PER_MINUTE,
+                        rowHeight = EPG_PROGRAM_ROW_HEIGHT,
+                        focusRequesterForChannel = requester,
+                        onChannelFocusAndIdChanged = { isFocused, focusedChannelId, logoUrl ->
+                            if (isFocused) {
+                                imageUrlForTopRight = logoUrl
+                                context.saveLastFocusedChannelId(focusedChannelId)
+                                focusedProgram = null
+                            }
+                            // POZOVITE viewModel.onChannelItemFocusChanged OVDE
+                            viewModel.onChannelItemFocusChanged(isFocused)
+                        },
+                        globalTimelineStartEpochSeconds = epgWindowStartEpochSeconds,
+                        horizontalScrollState = sharedHorizontalScrollState,
+                        totalWidth = totalEpgWidth,
+                        onProgramFocused = { program ->
+                            focusedProgram = program
+                            val channelForProgram =
+                                channels.find { it.channelId == program?.channelId }
+                            imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
+                        },
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
+                        /*onKeyEvent = { event ->
+                            if (isChannelItemFocused && event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
+                                viewModel.toggleFilterMenu(true)
+                                //allFilterRequester.requestFocus()
+                                true
+                            }
+                            false
+                        }*/
+                        onKeyEvent = { event ->
+                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
+                                if (isChannelItemFocused) {
+                                    viewModel.toggleFilterMenu(true)
+                                    true
+                                }
+                                else{
+                                    false
+                                }
+                            }else{
+                                false
+                            }
+
+                        }
+
+                    )
+                }
+            }
+        }
+        TimeLineOverlay(
+            epgWindowStartEpochSeconds = epgWindowStartEpochSeconds,
+            dpPerMinute = DP_PER_MINUTE,
+            horizontalScrollState = sharedHorizontalScrollState,
+            channels = channels,
+            isProgramDetailsVisible = (animatedProgramState != null),
+            modifier = Modifier.offset(x = epgContentOffsetX)
+        )
+
+    }
+}
+////////////////////////TEST///////////////////////////////
+/*@Composable
+fun EpgContent(
+    viewModel: EPGViewModel,
+    channels: List<AppChannel>,
+    programsByChannelId: Map<String, List<AppProgram>>,
+    epgWindowStartEpochSeconds: Long
+) {
     val context = LocalContext.current
     val density = LocalDensity.current
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
@@ -1194,7 +1600,7 @@ fun EpgContent(
             isProgramDetailsVisible = (animatedProgramState != null)
         )
     }
-}
+}*/
 
 // NOVO: Komponenta za filter meni
 @Composable
@@ -1210,13 +1616,22 @@ fun FilterMenu(
         modifier = Modifier
             .width(FILTER_MENU_WIDTH)
             .fillMaxHeight()
-            .background(Color(0xFF2E2E2E))
+            .background(BackgroundColor)
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) {
                     onFocused()
                 }
             }
             .onKeyEvent(onKeyEvent)
+            /*.onKeyEvent { event ->
+                // Ako je pritisnuto desno dugme na D-padu
+                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionRight) {
+                    // Obavestimo ViewModel da sakrije meni
+                    onKeyEvent(event)
+                    return@onKeyEvent true
+                }
+                return@onKeyEvent false
+            }*/
             .padding(start = 24.dp)
     ) {
         Column(
@@ -1245,12 +1660,28 @@ fun FilterMenu(
 
 @Composable
 fun FilterButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    /*val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) Color(0xFFFF525763)/*Color(0xFF5B5B5B)*/ else Color.Transparent,
+        animationSpec = tween(200)
+    )*/
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val focusedColor = Color(0xFFC0A0FF)
+    val selectedColor = Color(0xFF525763)
+
     val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) Color(0xFF5B5B5B) else Color.Transparent,
+        targetValue = when {
+            // isSelected ima najviši prioritet
+            isSelected -> selectedColor
+            // isFocused ima sledeći prioritet
+            isFocused -> focusedColor
+            // Podrazumevana boja (ništa od navedenog)
+            else -> Color.Transparent
+        },
         animationSpec = tween(200)
     )
     val textColor by animateColorAsState(
-        targetValue = if (isSelected) Color.White else Color.LightGray,
+        targetValue = if (isSelected || isFocused) Color.White else Color.LightGray,
         animationSpec = tween(200)
     )
     val buttonModifier = modifier
@@ -1258,8 +1689,11 @@ fun FilterButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifie
         .height(55.dp)
         .clip(RoundedCornerShape(27.5.dp))
         .background(backgroundColor)
-        .clickable(onClick = onClick)
-        .focusable(true)
+        .clickable(onClick = onClick,
+            indication = null,
+            interactionSource = interactionSource
+        )
+        .focusable(interactionSource = interactionSource)
         .padding(horizontal = 16.dp)
 
     Box(
@@ -1685,7 +2119,9 @@ fun TimeLineOverlay(
     dpPerMinute: Dp,
     horizontalScrollState: ScrollState,
     channels: List<AppChannel>,
-    isProgramDetailsVisible: Boolean
+    isProgramDetailsVisible: Boolean,
+    modifier: Modifier = Modifier // DODATO: Novi parametar
+
 ) {
     // Pratimo trenutno vreme
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
@@ -1752,7 +2188,7 @@ fun TimeLineOverlay(
 
     val lineColor = if (isVisible) Color(0xFFA269FF).copy(alpha = 0.75f) else Color.Transparent  //Color.Magenta.copy(alpha = 0.55f)
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(top = topPadding + 17.dp)
             .padding(

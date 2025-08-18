@@ -49,6 +49,9 @@ class EPGViewModel(
     private val _isChannelItemFocused = MutableStateFlow(false)
     val isChannelItemFocused: StateFlow<Boolean> = _isChannelItemFocused.asStateFlow()
 
+    //NEW CHANGEE----------------------------------------------//
+    private var allProgramsCache: Map<String, List<AppProgram>>? = null
+    //NEW CHANGEE----------------------------------------------//
 
 
 
@@ -118,6 +121,7 @@ class EPGViewModel(
     fun fetchChannelsAndInitialPrograms() {
         viewModelScope.launch {
             _channelState.value = Resource.Loading
+            _programState.value = Resource.Loading // Ovo ostaje za početno učitavanje!
             _epgWindowStartEpochSeconds.value = null
             Log.d(TAG, "Fetching channels...")
             val channelsResult = epgRepository.getChannels()
@@ -136,7 +140,9 @@ class EPGViewModel(
                     _channelState.value = Resource.Success(appChannelList)
                     if (appChannelList.isNotEmpty()) {
                         //loadProgramsForChannels(appChannelList)
-                        loadProgramsForCurrentFilter(appChannelList)
+                        // NOVO: Pozivamo funkciju za učitavanje SVIH programa samo jednom
+                        loadAllPrograms(appChannelList)
+                        //loadProgramsForCurrentFilter(appChannelList)
                     } else {
                         _programState.value = Resource.Success(emptyMap())
                         Log.d(TAG, "Channel list is empty, no programs to fetch.")
@@ -163,14 +169,16 @@ class EPGViewModel(
     fun onFilterSelected(filter: FilterType) {
         viewModelScope.launch {
             _currentFilter.value = filter
-            (_channelState.value as? Resource.Success)?.data?.let { allChannels ->
+            // NOVO: Umesto preuzimanja, samo primenjujemo filter na keširane podatke
+            applyCurrentFilter()
+            /*(_channelState.value as? Resource.Success)?.data?.let { allChannels ->
                 loadProgramsForCurrentFilter(allChannels)
-            }
+            }*/
         }
     }
 
     // NOVO: Funkcija koja filtrira kanale pre nego što se preuzmu programi
-    private fun loadProgramsForCurrentFilter(allChannels: List<AppChannel>) {
+    /*private fun loadProgramsForCurrentFilter(allChannels: List<AppChannel>) {
         viewModelScope.launch {
             val filteredChannels = when (_currentFilter.value) {
                 FilterType.ALL -> allChannels
@@ -178,7 +186,7 @@ class EPGViewModel(
             }
             loadProgramsForChannels(filteredChannels)
         }
-    }
+    }*/
 
     // NOVO: Funkcije za upravljanje stanjem UI-ja
     fun toggleFilterMenu(isVisible: Boolean) {
@@ -190,7 +198,7 @@ class EPGViewModel(
     }
 
 
-    private fun loadProgramsForChannels(channels: List<AppChannel>) {
+    /*private fun loadProgramsForChannels(channels: List<AppChannel>) {
         viewModelScope.launch {
 
             Log.d(
@@ -251,7 +259,7 @@ class EPGViewModel(
                 }
             )
         }
-    }
+    }*/
 
 
     private fun sanitizeAndGroupPrograms(programs: List<AppProgram>): Map<String, List<AppProgram>> {
@@ -382,7 +390,65 @@ class EPGViewModel(
         }
     }*/
 
+
+
+
+
+
+    //// NOVE FUNKCIJEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE//
+
+    private fun loadAllPrograms(channels: List<AppChannel>) {
+        viewModelScope.launch {
+            val startEpoch = getSnappedEpgStartTime()
+            val programsResult = epgRepository.getPrograms(
+                channels = channels,
+                startEpoch = startEpoch,
+                endEpoch = null
+            )
+
+            programsResult.fold(
+                onSuccess = { appProgramList ->
+                    val finalProgramMap = withContext(Dispatchers.Default) {
+                        // ISPRAVKA: Prvo filtriramo po trajanju, pa onda sanitizujemo
+                        val filteredByDurationList = appProgramList.filter { (it.durationSec ?: 0) >= 60 }
+                        sanitizeAndGroupPrograms(filteredByDurationList)
+                    }
+
+                    allProgramsCache = finalProgramMap
+                    _epgWindowStartEpochSeconds.value = startEpoch
+
+                    applyCurrentFilter()
+                },
+                onFailure = { error ->
+                    _programState.value = Resource.Error(
+                        message = error.message ?: "Unknown error fetching program.",
+                        error = error
+                    )
+                    _epgWindowStartEpochSeconds.value = null
+                }
+            )
+        }
+    }
+
+
+    // NOVO: Metoda za lokalno filtriranje keširanih podataka
+    private fun applyCurrentFilter() {
+        val programsToDisplay = when (_currentFilter.value) {
+            FilterType.ALL -> allProgramsCache
+            FilterType.FAVORITES -> {
+                allProgramsCache?.filterKeys { channelId ->
+                    val channel = (_channelState.value as? Resource.Success)?.data?.find { it.channelId == channelId }
+                    channel?.isFavorite == true
+                }
+            }
+        }
+        // Ažuriramo stanje sa filtriranim podacima iz keša
+        _programState.value = programsToDisplay?.let { Resource.Success(it) } ?: Resource.Success(emptyMap())
+    }
+
 }
+
+
 
 
 class EPGViewModelFactory(

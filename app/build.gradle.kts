@@ -131,6 +131,7 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.ui)
+    implementation(libs.androidx.ui.tooling.preview)
     //implementation(libs.media3.ui.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
