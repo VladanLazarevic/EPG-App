@@ -1726,51 +1726,46 @@ fun VideoPlayer(
 ) {
     val context = LocalContext.current
 
-    // Stanje koje prati da li je plejer spreman za prikaz
+
     var isPlayerReady by remember { mutableStateOf(false) }
 
-    // Kreiramo ExoPlayer instancu i pamtimo je.
+
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             playWhenReady = true
         }
     }
 
-    // Efekat koji upravlja životnim ciklusom plejera i listener-om
+
     DisposableEffect(exoPlayer) {
-        // Kreiramo listener koji prati stanje plejera
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
-                // Kada je plejer spreman (završio baferovanje), ažuriramo stanje
                 isPlayerReady = playbackState == Player.STATE_READY
             }
         }
-        // Dodajemo listener
         exoPlayer.addListener(listener)
 
-        // onDispose se poziva kada se komponenta uništi
         onDispose {
-            exoPlayer.removeListener(listener) // Uklanjamo listener
-            exoPlayer.release() // Oslobađamo plejer
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
         }
     }
 
-    // Efekat koji reaguje na promenu video linka
+
     LaunchedEffect(videoUrl) {
-        isPlayerReady = false // Resetujemo stanje svaki put kad se promeni video
+        isPlayerReady = false
         val mediaItem = MediaItem.fromUri(videoUrl)
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
     }
 
-    // Koristimo Box za slaganje elemenata (plejer ili sličica/spinner)
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        // AndroidView (plejer) je jedan od elemenata u Box-u
+
         AndroidView(
-            // .alpha() čini plejer nevidljivim dok nije spreman
             modifier = Modifier
                 .fillMaxSize()
                 .focusable(false)
@@ -1782,13 +1777,11 @@ fun VideoPlayer(
                     isFocusable = false
                 }
             },
-            // Update blok je važan da se video ne zamrzne pri povratku u aplikaciju
             update = { view ->
                 view.player = exoPlayer
             }
         )
 
-        // Prikazujemo sličicu i spinner ako plejer NIJE spreman
         if (!isPlayerReady) {
             AsyncImage(
                 model = thumbnailUrl,
