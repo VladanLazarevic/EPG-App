@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 //import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.Icons
+//import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -95,6 +97,10 @@ import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.Lifecycle
@@ -102,6 +108,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.Player
 
+
+
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalDensity
 
 
 
@@ -1181,10 +1191,9 @@ fun EpgContent(
                 favoritesFilterRequester = favoritesFilterRequester
             )
         }
-        // NOVO: isInitialFocusRequested varijabla
+
         //val isInitialFocusRequested = remember { mutableStateOf(false) }
         val isLeftArrowVisible = isChannelItemFocused && !isFilterMenuVisible
-        // NOVO: Logika za vidljivost strelice '<'
         /*val isLeftArrowVisible by remember(isChannelItemFocused, isFilterMenuVisible, isInitialFocusRequested.value) {
             derivedStateOf {
                 // Prikazuje se ako je kanal fokusiran I ako meni nije vidljiv.
@@ -1192,24 +1201,30 @@ fun EpgContent(
                 isChannelItemFocused && !isFilterMenuVisible
             }
         }*/
-        //val isLeftArrowVisible = isChannelItemFocused && !isFilterMenuVisible && isInitialFocusRequested.value
+
         AnimatedVisibility(
             visible = isLeftArrowVisible,
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 5.dp)
+                .padding(start = 0.dp)
         ) {
-            Text(
-                text = "<<<",
+            /*Text(
+                text = "<<",
                 fontSize = 30.sp,
                 color = Color(0xFFA269FF).copy(alpha = 0.75f),
-                modifier = Modifier.padding(start = 2.dp)
+                modifier = Modifier.padding(start = 0.dp)
+            )*/
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = "Open Filter Menu",
+                tint = Color(0xFFA269FF).copy(alpha = 0.75f),
+                modifier = Modifier
+                    .size(47.dp)
+                    .padding(start = 0.dp)
             )
         }
-
-
 
 
         ///TESTIRANJE//
@@ -1825,6 +1840,7 @@ fun FilterMenu(
     ) {
         Column(
             modifier = Modifier
+                .background(BackgroundColor)
                 .fillMaxHeight()
                 .focusGroup(),
             verticalArrangement = Arrangement.Center
@@ -1855,7 +1871,8 @@ fun FilterButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifie
     )*/
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-    val focusedColor = Color(0xFFC0A0FF)
+    //val focusedColor = Color(0xFFC0A0FF)
+    val focusedColor = Color(0xFFA269FF).copy(alpha = 0.75f)
     val selectedColor = Color(0xFF525763)
 
     val backgroundColor by animateColorAsState(
