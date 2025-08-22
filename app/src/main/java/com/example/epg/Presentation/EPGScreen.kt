@@ -101,6 +101,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.Lifecycle
@@ -981,7 +982,7 @@ fun EpgContent(
 
         // KLJUČNO: Sakrijte listu pre skrolovanja
         isListReady = false
-        delay(250) // Kratka odgoda da se UI ažurira pre skrolovanja
+        delay(200) // Kratka odgoda da se UI ažurira pre skrolovanja
         // Da bi se izbeglo pokretanje pri inicijalnom startu,
         // možete dodati proveru isInitialFocusRequested.value
         // ili se osloniti na vaš postojeći LaunchedEffect za inicijalni fokus
@@ -1202,13 +1203,21 @@ fun EpgContent(
             }
         }*/
 
+        val arrowOffset by animateDpAsState(
+            targetValue = if (isFilterMenuVisible) FILTER_MENU_WIDTH else 0.dp,
+            animationSpec = tween(300),
+            label = "arrowOffset"
+        )
         AnimatedVisibility(
-            visible = isLeftArrowVisible,
+            visible = true,
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 0.dp)
+                .padding(start = arrowOffset)
+                .graphicsLayer {
+                    rotationY = if (isFilterMenuVisible) 180f else 0f // Rotiraj za 180 stepeni kada je meni otvoren
+                }
         ) {
             /*Text(
                 text = "<<",
@@ -1303,8 +1312,8 @@ fun EpgContent(
             // TESTIRANJE //
             AnimatedVisibility(
                 visible = isListReady,
-                enter = fadeIn(animationSpec = tween(150)),
-                exit = fadeOut(animationSpec = tween(150))
+                enter = fadeIn(animationSpec = tween(1)),
+                exit = fadeOut(animationSpec = tween(1))
             ) {
                 TvLazyColumn(
                     modifier = Modifier
