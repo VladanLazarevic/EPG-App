@@ -1,13 +1,9 @@
 package com.example.epg.Presentation
 
-import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.Recomposer
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.tv.foundation.lazy.list.TvLazyListState
 import com.example.epg.Data.repository.EPGRepository.EPGRepository
 import com.example.epg.Domain.model.AppChannel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,13 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.epg.Domain.model.AppProgram
-import java.util.concurrent.TimeUnit
-import androidx.compose.runtime.State
-import com.example.epg.Data.local.FavoriteManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
-import java.net.URLEncoder
 import java.util.Calendar
 
 
@@ -33,39 +25,35 @@ enum class FilterType {
 }
 
 class EPGViewModel(
-    private val epgRepository: EPGRepository,
-    private val favoriteManager: FavoriteManager
+    private val epgRepository: EPGRepository
 ): ViewModel() {
 
-    // NOVO: Stanje filtera i vidljivosti menija
+
     private val _currentFilter = MutableStateFlow(FilterType.ALL)
     val currentFilter: StateFlow<FilterType> = _currentFilter.asStateFlow()
-
 
     private val _isFilterMenuVisible = MutableStateFlow(false)
     val isFilterMenuVisible: StateFlow<Boolean> = _isFilterMenuVisible.asStateFlow()
 
-    // NOVO: Stanje fokusa na kanalu
+
     private val _isChannelItemFocused = MutableStateFlow(false)
     val isChannelItemFocused: StateFlow<Boolean> = _isChannelItemFocused.asStateFlow()
 
-    //NEW CHANGEE----------------------------------------------//
+    //NEW CHANGE----------------------------------------------//
     private var allProgramsCache: Map<String, List<AppProgram>>? = null
-    //NEW CHANGEE----------------------------------------------//
+    //NEW CHANGE----------------------------------------------//
 
 
 
     private val _channelState = MutableStateFlow<Resource<List<AppChannel>>>(Resource.Loading)
     val channelState: StateFlow<Resource<List<AppChannel>>> = _channelState.asStateFlow()
 
-    private val _programState =
-        MutableStateFlow<Resource<Map<String, List<AppProgram>>>>(Resource.Loading)
-    val programState: StateFlow<Resource<Map<String, List<AppProgram>>>> =
-        _programState.asStateFlow()
+    private val _programState = MutableStateFlow<Resource<Map<String, List<AppProgram>>>>(Resource.Loading)
+    val programState: StateFlow<Resource<Map<String, List<AppProgram>>>> = _programState.asStateFlow()
 
     // NOVO: Stanje koje čuva program koji se trenutno pušta
-    //private val _playingProgram = MutableStateFlow<AppProgram?>(null)
-    //val playingProgram: StateFlow<AppProgram?> = _playingProgram.asStateFlow()
+    private val _playingProgram = MutableStateFlow<AppProgram?>(null)
+    val playingProgram: StateFlow<AppProgram?> = _playingProgram.asStateFlow()
 
     private val _epgWindowStartEpochSeconds = MutableStateFlow<Long?>(null)
     val epgWindowStartEpochSeconds: StateFlow<Long?> = _epgWindowStartEpochSeconds.asStateFlow()
@@ -121,7 +109,7 @@ class EPGViewModel(
     fun fetchChannelsAndInitialPrograms() {
         viewModelScope.launch {
             _channelState.value = Resource.Loading
-            _programState.value = Resource.Loading // Ovo ostaje za početno učitavanje!
+            _programState.value = Resource.Loading
             _epgWindowStartEpochSeconds.value = null
             Log.d(TAG, "Fetching channels...")
             val channelsResult = epgRepository.getChannels()
@@ -164,16 +152,12 @@ class EPGViewModel(
         }
     }
 
-    //NOVO
-    // NOVO: Javna funkcija za promenu filtera
+    //New
+
     fun onFilterSelected(filter: FilterType) {
         viewModelScope.launch {
             _currentFilter.value = filter
-            // NOVO: Umesto preuzimanja, samo primenjujemo filter na keširane podatke
             applyCurrentFilter()
-            /*(_channelState.value as? Resource.Success)?.data?.let { allChannels ->
-                loadProgramsForCurrentFilter(allChannels)
-            }*/
         }
     }
 
@@ -279,7 +263,7 @@ class EPGViewModel(
             val sortedPrograms = channelPrograms.sortedBy { it.startTimeEpoch }
 
             val sanitizedChannelList = mutableListOf<AppProgram>()
-            sanitizedChannelList.add(sortedPrograms.first()) // Add first program in list
+            sanitizedChannelList.add(sortedPrograms.first())
 
             for (i in 1 until sortedPrograms.size) {
                 val currentProgram = sortedPrograms[i]
@@ -395,7 +379,7 @@ class EPGViewModel(
 
 
 
-    //// NOVE FUNKCIJEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE//
+    //// NEW FUNCTIONS ///
 
     private fun loadAllPrograms(channels: List<AppChannel>) {
         viewModelScope.launch {
@@ -409,7 +393,6 @@ class EPGViewModel(
             programsResult.fold(
                 onSuccess = { appProgramList ->
                     val finalProgramMap = withContext(Dispatchers.Default) {
-                        // ISPRAVKA: Prvo filtriramo po trajanju, pa onda sanitizujemo
                         val filteredByDurationList = appProgramList.filter { (it.durationSec ?: 0) >= 60 }
                         sanitizeAndGroupPrograms(filteredByDurationList)
                     }
@@ -431,7 +414,7 @@ class EPGViewModel(
     }
 
 
-    // NOVO: Metoda za lokalno filtriranje keširanih podataka
+
     private fun applyCurrentFilter() {
         val programsToDisplay = when (_currentFilter.value) {
             FilterType.ALL -> allProgramsCache
@@ -442,7 +425,7 @@ class EPGViewModel(
                 }
             }
         }
-        // Ažuriramo stanje sa filtriranim podacima iz keša
+        // update state with filtered data from cash
         _programState.value = programsToDisplay?.let { Resource.Success(it) } ?: Resource.Success(emptyMap())
     }
 
@@ -452,13 +435,12 @@ class EPGViewModel(
 
 
 class EPGViewModelFactory(
-    private val epgRepository: EPGRepository,
-    private val favoriteManager: FavoriteManager
+    private val epgRepository: EPGRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(EPGViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return EPGViewModel(epgRepository, favoriteManager) as T
+            return EPGViewModel(epgRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

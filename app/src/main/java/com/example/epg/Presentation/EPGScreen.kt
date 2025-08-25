@@ -972,101 +972,71 @@ fun EpgContent(
 
     var isListReady by remember { mutableStateOf(true) }
     var isInitialFilterFocusDone by remember { mutableStateOf(false) }
-    // Novi LaunchedEffect koji se aktivira kada se promeni filter
+
+    // CHANGE FILTER //
     LaunchedEffect(currentFilter) {
         if (!isInitialFilterFocusDone) {
             return@LaunchedEffect
         }
 
-        // 1. Privremeno ispraznite listu da bi se sakrio sadržaj
-
-        // KLJUČNO: Sakrijte listu pre skrolovanja
         isListReady = false
-        delay(200) // Kratka odgoda da se UI ažurira pre skrolovanja
-        // Da bi se izbeglo pokretanje pri inicijalnom startu,
-        // možete dodati proveru isInitialFocusRequested.value
-        // ili se osloniti na vaš postojeći LaunchedEffect za inicijalni fokus
-        // ako je već funkcionalan.
+        delay(1)
         val lastFocusedId = context.getLastFocusedChannelId()
         if (lastFocusedId != null) {
             val targetIndex = filteredChannels.indexOfFirst { it.channelId == lastFocusedId }
-            val itemsAboveFocused = 2 // Isto kao i ranije
+            val itemsAboveFocused = 2
             val indexToScrollTo = (targetIndex - itemsAboveFocused).coerceAtLeast(0)
 
-            // Proverite da li je kanal pronađen u novoj listi pre skrolovanja
+
             if (targetIndex != -1) {
                 listState.scrollToItem(indexToScrollTo)
-                // Sačekajte kratko da se lista "smiri"
-                //delay(500)
 
-                //delay(100) // Kratka odgoda da bi animacija imala vremena da se završi
+                //delay(500)
+                //delay(100)
                 // Opciono: Vratite fokus na kanal nakon skrolovanja
                 /*val targetChannel = filteredChannels[targetIndex]
                 focusRequesters[targetChannel.channelId]?.requestFocus()*/
+            } else {
+                listState.scrollToItem(0)
             }
         }
         isListReady = true
     }
-    //NOVO
+
+    // VISIBLE MENU //
     LaunchedEffect(isFilterMenuVisible) {
         if (isFilterMenuVisible) {
-            delay(100) // Kratko kašnjenje da se omogući recomposition
-            // Ako je trenutno odabrani filter ALL, fokusiramo taj taster
+            delay(100)
             if (currentFilter == FilterType.ALL) {
                 allFilterRequester.requestFocus()
-                // Ako je odabrani filter FAVORITES, fokusiramo taj taster
             } else if (currentFilter == FilterType.FAVORITES) {
                 favoritesFilterRequester.requestFocus()
             }
         }
     }
 
-    //NOVO
-    /*
-    LaunchedEffect(isFilterMenuVisible) {
-        if (!isFilterMenuVisible) {
-            delay(100) // Daje vreme za animaciju zatvaranja
-            // Pronalaženje i fokusiranje poslednjeg kanala
-            val lastFocusedChannelId = context.getLastFocusedChannelId()
-            val targetChannel = channels.find { it.channelId == lastFocusedChannelId }
-            targetChannel?.let { channel ->
-                focusRequesters[channel]?.requestFocus()
-            }
-        }
-    }*/
-    // NOVO: Prati da li je početni efekat vraćanja fokusa već pokrenut
 
-    // NOVO: Prati da li je ovo prvi prelazak sa menija na listu
+
     var isFirstFocusFromMenu by remember { mutableStateOf(true) }
+
+    // INVISIBLE MENU //
     LaunchedEffect(isFilterMenuVisible) {
         if (!isFilterMenuVisible && isInitialFilterFocusDone) {
             delay(100)
-            // Ako je meni zatvoren, pokušaj da vratiš fokus
             val lastFocusedChannelId = context.getLastFocusedChannelId()
             val targetChannel = filteredChannels.find { it.channelId == lastFocusedChannelId }
-            /*val channelToFocus = if (isFirstFocusFromMenu) {
-                // Prvi prelazak: fokusiraj treći element, ili prvi ako ih nema dovoljno
-                filteredChannels.getOrNull(2) ?: filteredChannels.firstOrNull()
-
-            } else {
-                // Svaki sledeći prelazak: vraća fokus na poslednji kanal
-                targetChannel ?: filteredChannels.firstOrNull()
-
-            }*/
-
 
             val channelToFocus = targetChannel ?: filteredChannels.firstOrNull()
-            //val channelToFocus = filteredChannels.getOrNull(2)
             if (channelToFocus != null) {
                 val targetIndex = filteredChannels.indexOf(channelToFocus)
                 if (targetIndex != -1) {
                     focusRequesters[channelToFocus.channelId]?.requestFocus()
                 }
             }
-            // Postavljamo zastavicu na false nakon prvog prelaska
+
             isFirstFocusFromMenu = false
         }
-        // Postavljamo flag da je inicijalno stanje obrađeno
+
         if (!isFilterMenuVisible) {
             isInitialFilterFocusDone = true
         }

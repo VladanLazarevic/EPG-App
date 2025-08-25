@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
             context = appContext,
             favoriteManager = favoriteManager
         )
-        EPGViewModelFactory(epgRepository, favoriteManager)
+        EPGViewModelFactory(epgRepository)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
