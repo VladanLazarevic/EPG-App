@@ -172,7 +172,7 @@ class EPGViewModel(
         }
     }*/
 
-    // NOVO: Funkcije za upravljanje stanjem UI-ja
+
     fun toggleFilterMenu(isVisible: Boolean) {
         _isFilterMenuVisible.update { isVisible }
     }

@@ -952,6 +952,7 @@ fun EpgContent(
     val isFilterMenuVisible by viewModel.isFilterMenuVisible.collectAsState()
     val isChannelItemFocused by viewModel.isChannelItemFocused.collectAsState()
     val currentFilter by viewModel.currentFilter.collectAsState()
+
     val filteredChannels by remember(channels, currentFilter) {
         derivedStateOf {
             when (currentFilter) {
@@ -1785,7 +1786,7 @@ fun EpgContent(
     }
 }*/
 
-// NOVO: Komponenta za filter meni
+
 @Composable
 fun FilterMenu(
     currentFilter: FilterType,
@@ -1799,7 +1800,7 @@ fun FilterMenu(
         modifier = Modifier
             .width(FILTER_MENU_WIDTH)
             .fillMaxHeight()
-            .background(BackgroundColor)
+            .background(Color.Yellow)
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) {
                     onFocused()
