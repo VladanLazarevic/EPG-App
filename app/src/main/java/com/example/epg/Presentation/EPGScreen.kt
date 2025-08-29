@@ -879,9 +879,10 @@ fun ChannelItem(
                     contentDescription = "Favorite",
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(bottom = 4.dp, end = 4.dp)
+                        .padding(bottom = 0.dp, end = 0.dp)
                         .size(26.dp),
-                    tint = Color.Red
+                    tint = Color(0xFFA269FF)
+
                 )
             }
         }
@@ -899,6 +900,7 @@ fun EpgContent(
     programsByChannelId: Map<String, List<AppProgram>>,
     epgWindowStartEpochSeconds: Long
 ) {
+
     // NOVO //
 
     //val focusRequesters = remember(channels) { channels.associateWith { FocusRequester() } }
@@ -1026,6 +1028,7 @@ fun EpgContent(
     // INVISIBLE MENU //
     LaunchedEffect(isFilterMenuVisible) {
         if (!isFilterMenuVisible && isInitialFilterFocusDone) {
+
             delay(100)
             val lastFocusedChannelId = context.getLastFocusedChannelId()
             val targetChannel = filteredChannels.find { it.channelId == lastFocusedChannelId }
@@ -1154,8 +1157,16 @@ fun EpgContent(
                     when (event.key) {
                         Key.DirectionRight -> {
                             if (event.type == KeyEventType.KeyDown) {
-                                viewModel.toggleFilterMenu(false)
-                                true
+                                val channeltofocus = filteredChannels.firstOrNull()
+                                if (channeltofocus != null) {
+                                    viewModel.toggleFilterMenu(false)
+                                    true
+                                } else {
+                                    false
+                                }
+
+                                //viewModel.toggleFilterMenu(false)
+                                //true
                             } else {
                                 false
                             }
@@ -1186,7 +1197,7 @@ fun EpgContent(
                 favoritesFilterRequester = favoritesFilterRequester
             )
         }
-
+/*hocu da mi napravi jednu izmenu, kada udjem u FAVORITES i kada nemam nijednog kanala tamo , da kada kliknem DESNO sa filter Menu-ja, da mi ne nestane filter menu, jer nemam sta da fokusiram, zellim da se nista ne desi kada kliknem DESNO u tom scenariju*/
         //val isInitialFocusRequested = remember { mutableStateOf(false) }
         val isLeftArrowVisible = isChannelItemFocused && !isFilterMenuVisible
         /*val isLeftArrowVisible by remember(isChannelItemFocused, isFilterMenuVisible, isInitialFocusRequested.value) {
