@@ -86,7 +86,7 @@ class EPGViewModel(
         return calendar.timeInMillis / 1000
     }*/
 
-    //new -> test
+
 
     private fun getSnappedEpgStartTime(): Long {
         val calendar = Calendar.getInstance()
@@ -160,6 +160,7 @@ class EPGViewModel(
             applyCurrentFilter()
         }
     }
+
 
     // NOVO: Funkcija koja filtrira kanale pre nego što se preuzmu programi
     /*private fun loadProgramsForCurrentFilter(allChannels: List<AppChannel>) {
@@ -316,6 +317,8 @@ class EPGViewModel(
             }
         }
     }
+
+
 
     // IZMENA: buildFinalUrl sada prima Context kao parametar
     /*private suspend fun buildFinalUrl(

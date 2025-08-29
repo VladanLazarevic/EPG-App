@@ -963,7 +963,7 @@ fun EpgContent(
     }
 
 
-    //NOVO
+    //NEW
 
     val epgContentOffsetX by animateDpAsState(
         targetValue = if (isFilterMenuVisible) FILTER_MENU_WIDTH else 0.dp,
@@ -973,6 +973,9 @@ fun EpgContent(
 
     var isListReady by remember { mutableStateOf(true) }
     var isInitialFilterFocusDone by remember { mutableStateOf(false) }
+
+
+
 
     // CHANGE FILTER //
     LaunchedEffect(currentFilter) {
@@ -1042,6 +1045,7 @@ fun EpgContent(
             isInitialFilterFocusDone = true
         }
     }
+
 
 
     val filterRequesters = mapOf(
@@ -1158,7 +1162,26 @@ fun EpgContent(
                         }
                         else -> false
                     }
-                },
+                }
+                /*onKeyEvent = { event ->
+                    when (event.key) {
+                        Key.DirectionRight -> {
+                            if (event.type == KeyEventType.KeyDown) {
+                                viewModel.toggleFilterMenu(false)
+                                // ODMAH POSTAVI FOKUS NA KANAL NAKON ZATVARANJA MENIJA
+                                val lastFocusedChannelId = context.getLastFocusedChannelId()
+                                val channelToFocus = filteredChannels.find { it.channelId == lastFocusedChannelId } ?: filteredChannels.firstOrNull()
+                                if (channelToFocus != null) {
+                                    focusRequesters[channelToFocus.channelId]?.requestFocus()
+                                }
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        else -> false
+                    }
+                }*/,
                 allFilterRequester = allFilterRequester,
                 favoritesFilterRequester = favoritesFilterRequester
             )
@@ -1800,7 +1823,7 @@ fun FilterMenu(
         modifier = Modifier
             .width(FILTER_MENU_WIDTH)
             .fillMaxHeight()
-            .background(Color.Yellow)
+            .background(BackgroundColor)
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) {
                     onFocused()
@@ -1857,11 +1880,11 @@ fun FilterButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifie
 
     val backgroundColor by animateColorAsState(
         targetValue = when {
-            // isSelected ima najviši prioritet
+            // isSelected has highest priority
             isSelected -> selectedColor
-            // isFocused ima sledeći prioritet
+            // isFocused has lower priority
             isFocused -> focusedColor
-            // Podrazumevana boja (ništa od navedenog)
+
             else -> Color.Transparent
         },
         animationSpec = tween(200)
