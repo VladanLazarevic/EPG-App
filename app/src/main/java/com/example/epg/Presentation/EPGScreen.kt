@@ -88,6 +88,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.ui.PlayerView
 //import androidx.media3.ui.compose.PlayerSurface
 //import androidx.media3.ui.PlayerView
+
+
 //import androidx.media3.ui.PlayerView
 //import androidx.media3.ui.PlayerView
 // Potrebni importi za ovo rešenje
@@ -275,9 +277,9 @@ fun EpgChannelRow(
     onProgramFocused: (program: AppProgram?) -> Unit,
     currentTimeInEpochSeconds: Long,
     // NOVO: EpgChannelRow sada prima onKeyEvent
-    onKeyEvent: (KeyEvent) -> Boolean
-    //onProgramClicked: (AppProgram) -> Unit,
-    //playingProgram: AppProgram?
+    onKeyEvent: (KeyEvent) -> Boolean,
+    onProgramClicked: (AppProgram) -> Unit,
+    playingProgram: AppProgram?
 
 ) {
 
@@ -430,9 +432,9 @@ fun EpgChannelRow(
                                 onProgramFocused(program)
                             }
                         },
-                        currentTimeInEpochSeconds = currentTimeInEpochSeconds
-                        //playingProgram = playingProgram,
-                        //onClick = { onProgramClicked(program) }
+                        currentTimeInEpochSeconds = currentTimeInEpochSeconds,
+                        playingProgram = playingProgram,
+                        onClick = { onProgramClicked(program) }
                     )
                     lastVisualElementEndTimeSeconds = programEndTimeSeconds
                 }
@@ -561,9 +563,9 @@ fun ProgramCard(
     durationSec: Long,
     shape: Shape,
     onFocusChanged: (isFocused: Boolean) -> Unit,
-    currentTimeInEpochSeconds: Long
-    //playingProgram: AppProgram?,
-    //onClick: () -> Unit,
+    currentTimeInEpochSeconds: Long,
+    playingProgram: AppProgram?,
+    onClick: () -> Unit,
 ) {
     val programDurationMinutes = durationSec / 60f
     val programWidth = (programDurationMinutes * dpPerMinute.value).dp
@@ -576,11 +578,11 @@ fun ProgramCard(
     }
 
     // NOVO: Proveravamo da li je BAŠ OVA kartica ona koja se pušta
-    //val isPlaying = playingProgram?.programId == program.programId && playingProgram?.channelId == program.channelId
+    val isPlaying = playingProgram?.programId == program.programId && playingProgram?.channelId == program.channelId
 
 
     val cardAlpha = 0.53f
-    /*val containerrColor by animateColorAsState(
+    val containerrColor by animateColorAsState(
         targetValue = when {
             isPlaying -> PlayingProgramCardColor.copy(alpha = 0.8f) // Ljubičasta ako se pušta
             isFocused -> FocusedProgramCardColor.copy(alpha = 1f)   // Bela/Siva ako je fokusirana
@@ -588,13 +590,13 @@ fun ProgramCard(
         },
         animationSpec = tween(200),
         label = "ProgramCardContainerColorFocus"
-    )*/
+    )
 
-    val containerrColor by animateColorAsState(
+    /*val containerrColor by animateColorAsState(
         targetValue = if (isFocused) FocusedProgramCardColor.copy(alpha = 1f) else UnfocusedProgramCardColor.copy(alpha = cardAlpha),
         animationSpec = tween(100),
         label = "ProgramCardContainerColorFocus"
-    )
+    )*/
 
     val spacingWidth = 4.5.dp
     // Icon + Space
@@ -602,15 +604,14 @@ fun ProgramCard(
 
     //slide right
     val textOffset by animateDpAsState(
-        targetValue = if (isFocused && isCurrentlyLive) iconAreaWidth else 0.dp,
-        ///targetValue = if (isPlaying) iconAreaWidth else 0.dp,
+        //targetValue = if (isFocused && isCurrentlyLive) iconAreaWidth else 0.dp,
+        targetValue = if (isPlaying) iconAreaWidth else 0.dp,
         animationSpec = tween(durationMillis = 200),
         label = "TextOffsetAnimation"
     )
 
-    Card(
+    /*Card(
         modifier = Modifier
-            //.clickable { onClick() }
             .width(programWidth)
             .height(height - 4.dp)
             .onFocusChanged { focusState ->
@@ -621,31 +622,53 @@ fun ProgramCard(
                 isFocused = focusState.isFocused
                 onFocusChanged(isFocused)
             }
+            .clickable { onClick() }
             .focusable(true),
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
+    )*/
+    var cardModifier = Modifier
+        .width(programWidth)
+        .height(height - 4.dp)
+        .onFocusChanged { focusState ->
+            isFocused = focusState.isFocused
+            onFocusChanged(isFocused)
+        }
+
+
+    if (isCurrentlyLive) {
+        cardModifier = cardModifier.clickable { onClick() }
+    }
+
+    cardModifier = cardModifier.focusable(true)
+
+    Card(
+        modifier = cardModifier,
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    )
+    {
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(end = spacingWidth)
+                //.padding(end = spacingWidth)
                 .clip(shape)
                 .background(color = containerrColor, shape = shape)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             androidx.compose.animation.AnimatedVisibility(
-                //visible = isPlaying, //isFocused && isCurrentlyLive,
-                visible = isFocused && isCurrentlyLive,
+                visible = isPlaying, //isFocused && isCurrentlyLive,
+                //visible = isFocused && isCurrentlyLive,
                 enter = fadeIn(animationSpec = tween(150)),
                 exit = fadeOut(animationSpec = tween(150))
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.icon_play),
                     contentDescription = "Play",
-                    tint = Color.Black,
-                    //tint = if (isFocused) Color.Black else Color.LightGray,
+                    //tint = Color.Black,
+                    tint = if (isFocused) Color.Black else Color.LightGray,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -901,7 +924,17 @@ fun EpgContent(
     epgWindowStartEpochSeconds: Long
 ) {
 
-    // NOVO //
+    // EXO PLAYER LOGIC //
+
+    val context = LocalContext.current
+    val density = LocalDensity.current // <-- DODAJTE OVU LINIJU
+    val playerBoxHeight = 280.dp // Visina je ista kao za sliku
+    val playerBoxWidth = remember(playerBoxHeight) { (playerBoxHeight.value * 16 / 9).dp }
+    val playerBoxWidthPx = with(density) { playerBoxWidth.toPx().toInt() } // <-- DODAJTE OVU LINIJU
+    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() } // <-- DODAJTE OVU LINIJU
+
+    // EXO PLAYER LOGIC //
+
 
     //val focusRequesters = remember(channels) { channels.associateWith { FocusRequester() } }
     // IZMENJENO: Mapiranje FocusRequestera po channelId (stabilan ključ)
@@ -917,7 +950,7 @@ fun EpgContent(
 
 
 
-    val context = LocalContext.current
+
     var currentTimeInEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -934,6 +967,11 @@ fun EpgContent(
     var imageUrlForTopRight by remember { mutableStateOf<String?>(null) }
     val initialLastFocusedId =
         remember(channels) { if (channels.isNotEmpty()) context.getLastFocusedChannelId() else null }
+    // NEW//
+    // --- POČETAK NOVE LINIJE ---
+    var lastFocusedChannelId by remember { mutableStateOf(initialLastFocusedId) }
+// --- KRAJ NOVE LINIJE ---
+    //NEW//
     val targetChannelGlobalIndex = remember(channels, initialLastFocusedId) {
         if (initialLastFocusedId != null) channels.indexOfFirst { it.channelId == initialLastFocusedId }
             .takeIf { it != -1 } ?: 0 else 0
@@ -954,6 +992,8 @@ fun EpgContent(
     val isFilterMenuVisible by viewModel.isFilterMenuVisible.collectAsState()
     val isChannelItemFocused by viewModel.isChannelItemFocused.collectAsState()
     val currentFilter by viewModel.currentFilter.collectAsState()
+    // FOR EXO-PLAYER //
+    val playingProgram by viewModel.playingProgram.collectAsState()
 
     val filteredChannels by remember(channels, currentFilter) {
         derivedStateOf {
@@ -978,16 +1018,34 @@ fun EpgContent(
 
 
 
+    // NEW //
 
+    LaunchedEffect(filteredChannels) {
+
+        if (isInitialFilterFocusDone && currentFilter == FilterType.FAVORITES && filteredChannels.isEmpty()) {
+            viewModel.toggleFilterMenu(true)
+            delay(100)
+            favoritesFilterRequester.requestFocus()
+        }
+    }
+
+    // NEW //
     // CHANGE FILTER //
     LaunchedEffect(currentFilter) {
         if (!isInitialFilterFocusDone) {
             return@LaunchedEffect
         }
+        // 1. PRVO I ODMAH ZAKLJUČAVAMO FOKUS NA MENI
+        if (currentFilter == FilterType.ALL) {
+            allFilterRequester.requestFocus()
+        } else {
+            favoritesFilterRequester.requestFocus()
+        }
 
         isListReady = false
-        delay(1)
-        val lastFocusedId = context.getLastFocusedChannelId()
+        delay(200) // 200ms or 1ms ?
+        //val lastFocusedId = context.getLastFocusedChannelId()
+        val lastFocusedId = lastFocusedChannelId // <-- KLJUČNA IZMENA
         if (lastFocusedId != null) {
             val targetIndex = filteredChannels.indexOfFirst { it.channelId == lastFocusedId }
             val itemsAboveFocused = 2
@@ -1008,6 +1066,12 @@ fun EpgContent(
         }
         isListReady = true
     }
+
+
+
+
+
+
 
     // VISIBLE MENU //
     LaunchedEffect(isFilterMenuVisible) {
@@ -1051,6 +1115,7 @@ fun EpgContent(
 
 
 
+
     val filterRequesters = mapOf(
         FilterType.ALL to allFilterRequester,
         FilterType.FAVORITES to favoritesFilterRequester
@@ -1085,7 +1150,7 @@ fun EpgContent(
         val imageBoxHeight = 280.dp
         val imageBoxWidth = remember(imageBoxHeight) { (imageBoxHeight.value * 16 / 9).dp }
 
-        imageUrlForTopRight?.let { imageUrl ->
+        /*imageUrlForTopRight?.let { imageUrl ->
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -1129,7 +1194,70 @@ fun EpgContent(
                         )
                 )
             }
+        }*/
+
+        // EXO //
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .width(imageBoxWidth)
+                .height(imageBoxHeight)
+        ) {
+            if (playingProgram != null) {
+                VideoPlayer(
+                    videoUrl = playingProgram!!.playbackURL,
+                    thumbnailUrl = imageUrlForTopRight,
+                    modifier = Modifier.matchParentSize()
+                )
+            } else {
+                imageUrlForTopRight?.let { imageUrl ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .width(imageBoxWidth)
+                            .height(imageBoxHeight)
+                    ) {
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Pozadinska slika",
+                            modifier = Modifier
+                                .matchParentSize()
+                                .alpha(imageOverallAlpha),
+                            contentScale = ContentScale.Fit
+                        )
+                        Box(
+                            Modifier
+                                .align(Alignment.CenterStart)
+                                .width(imageFadeEdgeLength)
+                                .fillMaxHeight()
+                                .background(
+                                    brush = Brush.horizontalGradient(
+                                        listOf(
+                                            imageFadeToColor,
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .height(imageFadeEdgeLength)
+                                .fillMaxWidth()
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            Color.Transparent,
+                                            imageFadeToColor
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                }
+            }
         }
+        // EXO //
 
         AnimatedVisibility(
             visible = isFilterMenuVisible,
@@ -1141,6 +1269,8 @@ fun EpgContent(
                 currentFilter = currentFilter,
                 onFilterSelected = { filter ->
                     viewModel.onFilterSelected(filter)
+                    // NOVO: Zatvaramo meni čim je novi filter odabran
+                    //viewModel.toggleFilterMenu(false)
                 },
                 onFocused = {
                     viewModel.onChannelItemFocusChanged(false)
@@ -1343,8 +1473,8 @@ fun EpgContent(
                                 initialFocusRequestedForId = initialLastFocusedId
                                 //isInitialFocusRequested.value = true
                                 // DODAJTE OVE DVE LINIJE
-                                delay(50)
-                                viewModel.onChannelItemFocusChanged(true)
+                                /*delay(50)
+                                viewModel.onChannelItemFocusChanged(true)*/
 
                             }
                         }
@@ -1361,6 +1491,10 @@ fun EpgContent(
                                     imageUrlForTopRight = logoUrl
                                     context.saveLastFocusedChannelId(focusedChannelId)
                                     focusedProgram = null
+
+                                    // --- POČETAK NOVE LINIJE ---
+                                    lastFocusedChannelId = focusedChannelId // Ažuriramo naše brzo, pouzdano stanje
+                                    // --- KRAJ NOVE LINIJE ---
                                 }
                                 // POZOVITE viewModel.onChannelItemFocusChanged OVDE
                                 viewModel.onChannelItemFocusChanged(isFocused)
@@ -1374,6 +1508,15 @@ fun EpgContent(
                                     channels.find { it.channelId == program?.channelId }
                                 imageUrlForTopRight = program?.thumbnail ?: channelForProgram?.logo
                             },
+                            onProgramClicked = { program ->
+                                viewModel.onProgramClicked(
+                                    program = program,
+                                    playerWidth = playerBoxWidthPx,
+                                    playerHeight = playerBoxHeightPx,
+                                    context = context
+                                )
+                            },
+                            playingProgram = playingProgram,
                             currentTimeInEpochSeconds = currentTimeInEpochSeconds,
                             /*onKeyEvent = { event ->
                                 if (isChannelItemFocused && event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
@@ -1383,7 +1526,7 @@ fun EpgContent(
                                 }
                                 false
                             }*/
-                            onKeyEvent = { event ->
+                            /*onKeyEvent = { event ->
                                 if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
                                     if (isChannelItemFocused) {
                                         viewModel.toggleFilterMenu(true)
@@ -1396,6 +1539,18 @@ fun EpgContent(
                                     false
                                 }
 
+                            }*/
+                            onKeyEvent = { event ->
+                                // Proveravamo samo da li je pritisnuto levo dugme
+                                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
+                                    // Ako jeste, odmah otvaramo meni jer znamo da je ovaj item fokusiran
+                                    viewModel.toggleFilterMenu(true)
+                                    // Vraćamo true da označimo da je događaj obrađen
+                                    true
+                                } else {
+                                    // Za sve ostale tastere, ne radimo ništa
+                                    false
+                                }
                             }
 
                         )

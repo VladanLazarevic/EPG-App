@@ -1,5 +1,6 @@
 package com.example.epg.Presentation
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -14,6 +15,7 @@ import com.example.epg.Domain.model.AppProgram
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import java.net.URLEncoder
 import java.util.Calendar
 
 
@@ -321,7 +323,7 @@ class EPGViewModel(
 
 
     // IZMENA: buildFinalUrl sada prima Context kao parametar
-    /*private suspend fun buildFinalUrl(
+    private suspend fun buildFinalUrl(
         templateUrl: String,
         context: Context,
         playerWidth: Int,
@@ -345,10 +347,10 @@ class EPGViewModel(
         finalUrl = finalUrl.replace("{{PLAYER_HEIGHT}}", playerHeight.toString())
         finalUrl = finalUrl.replace("{{PLATID}}", "android_tv")
         return finalUrl
-    }*/
+    }
 
     // IZMENA: onProgramClicked sada prima samo context
-    /*fun onProgramClicked(
+    fun onProgramClicked(
         program: AppProgram,
         playerWidth: Int,
         playerHeight: Int,
@@ -375,7 +377,7 @@ class EPGViewModel(
             Log.d(TAG, "Program '${program.title}' is not live, cannot play.")
             _playingProgram.value = null
         }
-    }*/
+    }
 
 
 
