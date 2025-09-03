@@ -110,6 +110,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.Player
+import androidx.compose.foundation.basicMarquee
 
 
 
@@ -578,13 +579,13 @@ fun ProgramCard(
     }
 
     // NOVO: Proveravamo da li je BAŠ OVA kartica ona koja se pušta
-    val isPlaying = playingProgram?.programId == program.programId && playingProgram?.channelId == program.channelId
+    val isPlaying = playingProgram?.programId == program.programId && playingProgram?.channelId == program.channelId && playingProgram?.startTimeEpoch == program.startTimeEpoch
 
 
     val cardAlpha = 0.53f
     val containerrColor by animateColorAsState(
         targetValue = when {
-            isPlaying -> PlayingProgramCardColor.copy(alpha = 0.8f) // Ljubičasta ako se pušta
+            isPlaying -> PlayingProgramCardColor.copy(alpha = 0.30f) // Ljubičasta ako se pušta //0xFF525763
             isFocused -> FocusedProgramCardColor.copy(alpha = 1f)   // Bela/Siva ako je fokusirana
             else -> UnfocusedProgramCardColor.copy(alpha = cardAlpha) // Tamna ako nije
         },
@@ -652,7 +653,7 @@ fun ProgramCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                //.padding(end = spacingWidth)
+                .padding(end = spacingWidth)
                 .clip(shape)
                 .background(color = containerrColor, shape = shape)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
@@ -673,6 +674,8 @@ fun ProgramCard(
                 )
             }
 
+
+            
             Text(
                 text = program.title,
                 style = MaterialTheme.typography.bodySmall,
@@ -927,11 +930,11 @@ fun EpgContent(
     // EXO PLAYER LOGIC //
 
     val context = LocalContext.current
-    val density = LocalDensity.current // <-- DODAJTE OVU LINIJU
-    val playerBoxHeight = 280.dp // Visina je ista kao za sliku
+    val density = LocalDensity.current
+    val playerBoxHeight = 280.dp
     val playerBoxWidth = remember(playerBoxHeight) { (playerBoxHeight.value * 16 / 9).dp }
-    val playerBoxWidthPx = with(density) { playerBoxWidth.toPx().toInt() } // <-- DODAJTE OVU LINIJU
-    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() } // <-- DODAJTE OVU LINIJU
+    val playerBoxWidthPx = with(density) { playerBoxWidth.toPx().toInt() }
+    val playerBoxHeightPx = with(density) { playerBoxHeight.toPx().toInt() }
 
     // EXO PLAYER LOGIC //
 
@@ -1197,7 +1200,7 @@ fun EpgContent(
         }*/
 
         // EXO //
-        Box(
+        /*Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .width(imageBoxWidth)
@@ -1256,8 +1259,112 @@ fun EpgContent(
                     }
                 }
             }
-        }
+        }*/
         // EXO //
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .width(imageBoxWidth)
+                .height(imageBoxHeight)
+        ) {
+            if (playingProgram != null) {
+                Box(modifier = Modifier.matchParentSize()) {
+                    VideoPlayer(
+                        videoUrl = playingProgram!!.playbackURL,
+                        thumbnailUrl = imageUrlForTopRight,
+                        modifier = Modifier.matchParentSize()
+                    )
+
+
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(BackgroundColor.copy(alpha = 0.42f))
+                    )
+
+
+                    Box(
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .width(imageFadeEdgeLength)
+                            .fillMaxHeight()
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    listOf(
+                                        imageFadeToColor,
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+
+
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .height(imageFadeEdgeLength)
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    listOf(
+                                        Color.Transparent,
+                                        imageFadeToColor
+                                    )
+                                )
+                            )
+                    )
+                }
+            }
+            else {
+
+                imageUrlForTopRight?.let { imageUrl ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .width(imageBoxWidth)
+                            .height(imageBoxHeight)
+                    ) {
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Pozadinska slika",
+                            modifier = Modifier
+                                .matchParentSize()
+                                .alpha(imageOverallAlpha),
+                            contentScale = ContentScale.Fit
+                        )
+                        Box(
+                            Modifier
+                                .align(Alignment.CenterStart)
+                                .width(imageFadeEdgeLength)
+                                .fillMaxHeight()
+                                .background(
+                                    brush = Brush.horizontalGradient(
+                                        listOf(
+                                            imageFadeToColor,
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .height(imageFadeEdgeLength)
+                                .fillMaxWidth()
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            Color.Transparent,
+                                            imageFadeToColor
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                }
+            }
+        }
+
 
         AnimatedVisibility(
             visible = isFilterMenuVisible,
@@ -2854,16 +2961,30 @@ fun VideoPlayer(
 
         // Prikazujemo sličicu i spinner ako plejer NIJE spreman
         if (!isPlayerReady) {
-            AsyncImage(
+            /*AsyncImage(
                 model = thumbnailUrl,
                 contentDescription = "Učitavanje...",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
-            )
-            CircularProgressIndicator(color = PlayingProgramCardColor)
+            )*/
+            //CircularProgressIndicator(color = PlayingProgramCardColor.copy(alpha = 0.3f))
+            Box(
+                modifier = Modifier.fillMaxSize()
+                //contentAlignment = Alignment.BottomCenter // Kažemo ovom Box-u da poravna sve na dno
+            ) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 0.dp) // Opciono: da ne ide od ivice do ivice
+                        .padding(bottom = 0.dp),   // Podižemo ga malo od dna
+                    color = PlayingProgramCardColor
+                )
+            }
+        }
+
         }
     }
-}
+
 
 
 
